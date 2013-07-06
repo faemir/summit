@@ -29,6 +29,7 @@ public class Climber : MonoBehaviour
 	}
 	
 	// Update is called once per frame
+	//tiny update
 	void Update () 
 	{
 	
