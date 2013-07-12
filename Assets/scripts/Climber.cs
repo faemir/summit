@@ -5,7 +5,7 @@ public class Climber : MonoBehaviour
 {
 	
 	public string[] toolStrings = new string[] {"CAM1", "CAM2"};
-	
+
 	private GameObject[] cameras;
 	private int toolNum = 0;
 	private int lastToolNum;

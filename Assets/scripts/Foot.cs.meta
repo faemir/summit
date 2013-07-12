@@ -1,10 +1,9 @@
 fileFormatVersion: 2
-guid: b7226c0f4f0d0584baa1260f43e2af5e
+guid: 3abc5f119d30f5f448b35668383fba3b
 MonoImporter:
   serializedVersion: 2
   defaultReferences:
-  - otherHand: {instanceID: 0}
-  - thisShoulder: {instanceID: 0}
+  - otherFoot: {instanceID: 0}
   - Green: {fileID: 2100000, guid: 94c32bd8cd330594aac2eef3dfc0de47, type: 2}
   - Orange: {fileID: 2100000, guid: 83891984b9dbfaf4b86bcfc4434fb4f6, type: 2}
   - Red: {fileID: 2100000, guid: f8a9ebdbda6020443b888b37fac123d8, type: 2}

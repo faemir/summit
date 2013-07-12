@@ -1,9 +1,9 @@
 using UnityEngine;
 using System.Collections;
 
-public class Hand : MonoBehaviour 
+public class Foot : MonoBehaviour 
 {
-	public enum HandPos
+	public enum FootPos
 	{
 		Left,
 		Right,
@@ -12,24 +12,25 @@ public class Hand : MonoBehaviour
 	
 	public GrabState MyProperty { get; set; }
 	
-	public HandPos thisHand = HandPos.Left;
-	public Transform otherHand;
+	public FootPos thisFoot = FootPos.Left;
+	public Transform otherFoot;
 	public Material Green;
 	public Material Orange;
 	public Material Red;
 	
 	static float strength = 80f;
-	private HandPos inputRequest;
+	private FootPos inputRequest;
 	public GrabState grab = GrabState.Grabbing;
 	private Vector3 moveForce = Vector3.zero;
-	private Hand otherHandScript;
+	private Foot otherFootScript;
 	
 	// Use this for initialization
 	void Start () 
 	{
-		inputRequest = HandPos.None;
+		inputRequest = FootPos.None;
 		renderer.material = Red;
-		otherHandScript = otherHand.GetComponent<Hand>();
+		otherFootScript = otherFoot.GetComponent<Foot>();
+
 	}
 	
 	void FixedUpdate ()
@@ -40,12 +41,12 @@ public class Hand : MonoBehaviour
 	
 	// Update is called once per frame
 	void Update () 
-	{	
-		inputRequest = HandPos.None;
-		if ( Input.GetKey(KeyCode.Q) ) inputRequest = HandPos.Left;
-		else if ( Input.GetKey(KeyCode.E) ) inputRequest = HandPos.Right;
+	{
+		inputRequest = FootPos.None;
+		if ( Input.GetKey(KeyCode.A) ) inputRequest = FootPos.Left;
+		else if ( Input.GetKey(KeyCode.D) ) inputRequest = FootPos.Right;
 		
-		if ( inputRequest == thisHand )
+		if ( inputRequest == thisFoot )
 		{
 			grab = GrabState.Reaching;
 		}
@@ -91,7 +92,7 @@ public class Hand : MonoBehaviour
 	void Reach ()
 	{
 		LetGo();
-		if ( otherHandScript.grab != GrabState.Grabbed ) return;
+		if ( otherFootScript.grab != GrabState.Grabbed ) return;
 		Vector3 target;
 		Vector3 mousepos = Input.mousePosition;
 		Ray mouseray = Camera.main.ScreenPointToRay(mousepos);
