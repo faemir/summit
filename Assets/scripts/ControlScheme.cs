@@ -10,31 +10,83 @@ public class ControlScheme : MonoBehaviour
 	public Transform RightFoot;
 	
 	// Reference to scripts on the limbs
-	private Hand LH;
-	private Hand RH;
-	private Hand LF;
-	private Hand RF;
+	private Limb LH;
+	private Limb RH;
+	private Limb LF;
+	private Limb RF;
 	
 	void Start () 
 	{
-		LH = LeftHand.GetComponent<Hand>();
-		RH = RightHand.GetComponent<Hand>();
+		LH = LeftHand.GetComponent<Limb>();
+		RH = RightHand.GetComponent<Limb>();
+		LF = LeftFoot.GetComponent<Limb>();
+		RF = RightFoot.GetComponent<Limb>();
 	}
 	
 
 	void Update ()
 	{
+		float mouseX = Input.GetAxis ("Mouse X");
+		float mouseY = Input.GetAxis ("Mouse Y");
+		
+		/* Left Hand */
 		if ( Input.GetButton("GripLeftHand") )
-			;// LH.Grip();
+			
+			// Player is holding grip button...
+			if ( Input.GetButton("PullLeftHand") )
+				// Player presses limb contract button...
+				// ...whilst trying to grip the wall (successfully or not)
+				// (Contract overrides Extend)
+				LH.Contract();
+			else if ( Input.GetButton("PushLeftHand") )
+				// Player presses limb contract button...
+				// ...whilst trying to grip the wall (successfully or not)
+				// (Extend overrides Grip)
+				LH.Extend();
+			else
+				// Player has not asked to Contract or Extend
+				// But they do want to Grip!
+				LH.Grip(mouseX, mouseY);
+		else
+			// Player isn't gripping, so assume they're reaching with this limb
+			// Contract/Extend commands are ignored here
+			LH.Reach(mouseX, mouseY);
 		
+		
+		/* Right Hand */
 		if ( Input.GetButton("GripRightHand") )
-			;// RH.Grip();
+
+			if ( Input.GetButton("PullLeftHand") )
+				RH.Contract();
+			else if ( Input.GetButton("PushLeftHand") )
+				RH.Extend();
+			else
+				RH.Grip(mouseX, mouseY);
+		else
+			RH.Reach(mouseX, mouseY);
 		
+		/* Left Foot */
 		if ( Input.GetButton("GripLeftFoot") )
-			;// LF.Grip();
+			
+			if ( Input.GetButton("PullLeftHand") )
+				LF.Contract();
+			else if ( Input.GetButton("PushLeftHand") )
+				LF.Extend();
+			else
+				LF.Grip(mouseX, mouseY);
+		else
+			LF.Reach(mouseX, mouseY);
 		
+		/* Right Foot  */
 		if ( Input.GetButton("GripRightFoot") )
-			;// RF.Grip();
+			if ( Input.GetButton("PullLeftHand") )
+				RF.Contract();
+			else if ( Input.GetButton("PushLeftHand") )
+				RF.Extend();
+			else
+				RF.Grip(mouseX, mouseY);
+		else
+			RF.Reach(mouseX, mouseY);
 		
 	}
 }
