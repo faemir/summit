@@ -16,8 +16,9 @@ public class Limb : MonoBehaviour {
 		Relaxed
 	}	
 	public float maxReachForce = 1; // body > reachForce > gravity
+	public Transform endLimb;
 	public Transform foreLimb;
-	public Transform upperLimb;	
+	public Transform upperLimb;
 	private CharacterJoint foreLimbJoint; // elbow/knee
 	private CharacterJoint endLimbJoint; // hand/foot
 	private CharacterJoint upperLimbJoint; // shoulder/hip
@@ -35,7 +36,7 @@ public class Limb : MonoBehaviour {
 	}
 	
 	private void fixedUpdate() {
-		Vector3 reachForce = Vector3.up * (limbMass * 9.81);
+		Vector3 reachForce = Vector3.up * (limbMass * 9.81f);
 		reachForce += reachDirection * maxReachForce;
 		rigidbody.AddForce(reachForce);
 	}
@@ -46,10 +47,10 @@ public class Limb : MonoBehaviour {
 	}
 	
 	private void OnCollisionStay(Collision info) {
-		if (currentGripState = GripState.Gripping)
+		if (currentGripState == GripState.Gripping)
 			switch (info.gameObject.tag) {
 			case "hold":
-				grab();
+				Grab();
 				break;
 			case "debris":
 				if (info.collider.rigidbody.velocity.magnitude < 0.8f) // force changeme
@@ -58,33 +59,33 @@ public class Limb : MonoBehaviour {
 		}		
 	}
 	
-	private void grab(){
-		if (info.gameObject.tag == "hold") {
-			grab = GrabState.Grabbed;
-			gameObject.AddComponent<FixedJoint>();
-		}
+	private void Grab(){
+
+		currentGripState = GripState.Gripped;
+		gameObject.AddComponent<FixedJoint>();
+
 	}
 	
-	private void grab(Rigidbody grabme) {
-		if (info.gameObject.tag == "debrishold") {
-			currentGripState = GripState.Gripped;
-			FixedJoint activeHold = gameObject.AddComponent<FixedJoint>();
-			activeHold.connectedBody = grabme;
-		}
+	private void Grab(Rigidbody grabme) {
+	
+		currentGripState = GripState.Gripped;
+		FixedJoint activeHold = gameObject.AddComponent<FixedJoint>();
+		activeHold.connectedBody = grabme;
+		
 	}
 	
 	
 	public void Reach(float Right, float Up) {
 		if (currentGripState != GripState.LetGo) {
 			currentGripState = GripState.LetGo;
-			reachDirection = SetReachDirection(Right, Up);
+			SetReachDirection(Right, Up);
 		}
 	}
 	
-	public void Grip(float right, float Up) {
+	public void Grip(float Right, float Up) {
 		if (currentGripState != GripState.Gripped) {
 			currentGripState = GripState.Gripping;
-			reachDirection = SetReachDirection(Right, Up);
+			SetReachDirection(Right, Up);
 		}
 	}
 	
