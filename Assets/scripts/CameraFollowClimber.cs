@@ -5,7 +5,8 @@ public class CameraFollowClimber : MonoBehaviour
 {
 	
 	public Transform climber;
-	
+	public float chaseDistanceFactor = 1.5f;
+	public float chaseAngleFactor = 1.5f;
 	// Use this for initialization
 	void Start () 
 	{
@@ -16,9 +17,9 @@ public class CameraFollowClimber : MonoBehaviour
 	void Update () 
 	{
 		Vector3 targetpos;
-		targetpos.x = climber.transform.position.x * 2;
-		targetpos.y = Mathf.Abs(climber.position.y - 2f);
-		targetpos.z = climber.position.z * 2;
+		targetpos.x = climber.transform.position.x * chaseDistanceFactor;
+		targetpos.y = Mathf.Abs(climber.position.y - chaseAngleFactor);
+		targetpos.z = climber.position.z * chaseDistanceFactor;
 		if (targetpos.x >= 18f) targetpos.x = 18f;
 		if (targetpos.x <= -18f) targetpos.x = -18f;
 		if (targetpos.z >= 18f) targetpos.z = 18f;

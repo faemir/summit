@@ -56,9 +56,9 @@ public class ControlScheme : MonoBehaviour
 		/* Right Hand */
 		if ( Input.GetButton("GripRightHand") )
 
-			if ( Input.GetButton("PullLeftHand") )
+			if ( Input.GetButton("PullRightHand") )
 				RH.Contract();
-			else if ( Input.GetButton("PushLeftHand") )
+			else if ( Input.GetButton("PushRightHand") )
 				RH.Extend();
 			else
 				RH.Grip(mouseX, mouseY);
@@ -68,9 +68,9 @@ public class ControlScheme : MonoBehaviour
 		/* Left Foot */
 		if ( Input.GetButton("GripLeftFoot") )
 			
-			if ( Input.GetButton("PullLeftHand") )
+			if ( Input.GetButton("PullLeftFoot") )
 				LF.Contract();
-			else if ( Input.GetButton("PushLeftHand") )
+			else if ( Input.GetButton("PushLeftFoot") )
 				LF.Extend();
 			else
 				LF.Grip(mouseX, mouseY);
@@ -79,9 +79,9 @@ public class ControlScheme : MonoBehaviour
 		
 		/* Right Foot  */
 		if ( Input.GetButton("GripRightFoot") )
-			if ( Input.GetButton("PullLeftHand") )
+			if ( Input.GetButton("PullRightFoot") )
 				RF.Contract();
-			else if ( Input.GetButton("PushLeftHand") )
+			else if ( Input.GetButton("PushRightFoot") )
 				RF.Extend();
 			else
 				RF.Grip(mouseX, mouseY);

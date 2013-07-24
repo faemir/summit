@@ -15,10 +15,11 @@ public class Fred : MonoBehaviour
 	
 	public bool useGravity = true;
 	public Kinematic MakeKinematic = Kinematic.None;
+	public float Strength = 5f;
 	
 	private bool useGravityOld;
 	private Kinematic MakeKinematicOld;
-	
+	private float OldStrength;
 	// Use this for initialization
 	void Start () 
 	{
@@ -35,6 +36,9 @@ public class Fred : MonoBehaviour
 		if (MakeKinematic != MakeKinematicOld)
 			SetKinematic();
 		MakeKinematicOld = MakeKinematic;
+		if (Strength != OldStrength)
+			SetStrength();
+		OldStrength = Strength;
 	}
 	
 	void SetGravity()
@@ -48,7 +52,7 @@ public class Fred : MonoBehaviour
 	
 	void SetKinematic()
 	{
-		Rigidbody[] rigidbodies = GetComponentsInChildren<Rigidbody>();;
+		Rigidbody[] rigidbodies = GetComponentsInChildren<Rigidbody>();
 		foreach (Rigidbody r in rigidbodies) 
 		{
 			r.isKinematic = false;
@@ -87,5 +91,14 @@ public class Fred : MonoBehaviour
 			break;
 		}
 
+	}
+	
+	void SetStrength()
+	{
+		Limb[] limbs = GetComponentsInChildren<Limb>();
+		foreach (Limb l in limbs)
+		{
+			l.maxReachForce = Strength;
+		}
 	}
 }
