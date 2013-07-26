@@ -35,16 +35,16 @@ public class Limb : MonoBehaviour {
 	}
 	
 	private void FixedUpdate() {
-		rigidbody.AddForce(reachForce, ForceMode.Acceleration);
+		rigidbody.AddForce(reachForce, ForceMode.Force);
 		Debug.DrawRay(transform.position, reachForce);
 	}
 	
 	private void SetReachForce(float Right, float Up) {
 		
 		Transform cam = Camera.main.transform;
-		Vector3 reachDirection = (cam.right * Right) + (Vector3.up * Up);
+		Vector3 reachDirection = (cam.right * Right) + (cam.up * Up);
 		reachDirection = Vector3.Normalize(reachDirection); //set reachDirection magnitude to 1
-		reachForce = -Physics.gravity;
+		reachForce = -Physics.gravity * limbMass;
 		reachForce += reachDirection * maxReachForce;
 	}
 	
@@ -64,7 +64,8 @@ public class Limb : MonoBehaviour {
 	private void Grab(){
 		Debug.Log("Grab attempt " + gameObject.name);
 		currentGripState = GripState.Gripped;
-		gameObject.AddComponent<FixedJoint>();
+		FixedJoint activeHold = gameObject.AddComponent<FixedJoint>();
+		activeHold.breakForce = 2f;
 
 	}
 	
@@ -74,11 +75,12 @@ public class Limb : MonoBehaviour {
 		currentGripState = GripState.Gripped;
 		FixedJoint activeHold = gameObject.AddComponent<FixedJoint>();
 		activeHold.connectedBody = grabme;
-		
+		activeHold.breakForce = 2f;
 	}
 	
 	
 	public void Reach(float Right, float Up) {
+		Relax();
 		FixedJoint[] grips = GetComponents<FixedJoint>();
 		foreach (FixedJoint g in grips)
 		{
@@ -89,6 +91,7 @@ public class Limb : MonoBehaviour {
 	}
 	
 	public void Grip(float Right, float Up) {
+		Relax();
 		if (currentGripState != GripState.Gripped) {
 			currentGripState = GripState.Gripping;
 			SetReachForce(Right, Up);

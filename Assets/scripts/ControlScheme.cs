@@ -17,6 +17,7 @@ public class ControlScheme : MonoBehaviour
 	
 	void Start () 
 	{
+		Screen.lockCursor = true;
 		LH = LeftHand.GetComponent<Limb>();
 		RH = RightHand.GetComponent<Limb>();
 		LF = LeftFoot.GetComponent<Limb>();
