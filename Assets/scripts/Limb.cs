@@ -97,21 +97,39 @@ public class Limb : MonoBehaviour {
 		if (currentLimbState != LimbState.Relaxed) {
 			currentLimbState = LimbState.Relaxed;
 			reachDirection = new Vector3(0,0,0);
-
+			CharacterJoint limbJoint = foreLimb.GetComponent<CharacterJoint>();
+			SoftJointLimit limbHTL = limbJoint.highTwistLimit;
+			SoftJointLimit limbLTL = limbJoint.lowTwistLimit;
+			limbHTL.limit = 0;
+			limbLTL.limit = -160;
+			limbJoint.highTwistLimit = limbHTL;
+			limbJoint.lowTwistLimit = limbLTL;
 		}
 	}
 	
 	public void Contract() {
 		if (currentLimbState != LimbState.Contracting) {
 			currentLimbState = LimbState.Contracting;
-			//contract rotational limits
+			CharacterJoint limbJoint = foreLimb.GetComponent<CharacterJoint>();
+			SoftJointLimit limbHTL = limbJoint.highTwistLimit;
+			SoftJointLimit limbLTL = limbJoint.lowTwistLimit;
+			limbHTL.limit = -160;
+			limbLTL.limit = -160;
+			limbJoint.highTwistLimit = limbHTL;
+			limbJoint.lowTwistLimit = limbLTL;
 		}
 	}
 	
 	public void Extend() {
 		if (currentLimbState != LimbState.Extending) {
 			currentLimbState = LimbState.Extending;
-			//extend rotational limits
+			CharacterJoint limbJoint = foreLimb.GetComponent<CharacterJoint>();
+			SoftJointLimit limbHTL = limbJoint.highTwistLimit;
+			SoftJointLimit limbLTL = limbJoint.lowTwistLimit;
+			limbHTL.limit = 0;
+			limbLTL.limit = 0;
+			limbJoint.highTwistLimit = limbHTL;
+			limbJoint.lowTwistLimit = limbLTL;
 		}
 	}	
 }
