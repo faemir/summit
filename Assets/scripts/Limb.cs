@@ -23,7 +23,7 @@ public class Limb : MonoBehaviour {
 	private CharacterJoint upperLimbJoint; // shoulder/hip
 	private GripState currentGripState = GripState.LetGo;
 	private LimbState currentLimbState = LimbState.Relaxed;
-	private Vector3 reachDirection;
+	private Vector3 reachForce;
 	private float limbMass;
 	
 	// Use this for initialization
@@ -33,17 +33,19 @@ public class Limb : MonoBehaviour {
 		endLimbJoint = transform.GetComponent<CharacterJoint>(); // hand/foot
 		upperLimbJoint = upperLimb.GetComponent<CharacterJoint>(); // shoulder/hip
 	}
-	private Vector3 reachForce;
+	
 	private void FixedUpdate() {
-		reachForce = -Physics.gravity;
-		reachForce += reachDirection * maxReachForce;
 		rigidbody.AddForce(reachForce, ForceMode.Acceleration);
 		Debug.DrawRay(transform.position, reachForce);
 	}
-	private void SetReachDirection(float Right, float Up) {
+	
+	private void SetReachForce(float Right, float Up) {
+		
 		Transform cam = Camera.main.transform;
-		reachDirection = (cam.right * Right) + (cam.up * Up);
+		Vector3 reachDirection = (cam.right * Right) + (Vector3.up * Up);
 		reachDirection = Vector3.Normalize(reachDirection); //set reachDirection magnitude to 1
+		reachForce = -Physics.gravity;
+		reachForce += reachDirection * maxReachForce;
 	}
 	
 	private void OnCollisionStay(Collision info) {
@@ -83,20 +85,19 @@ public class Limb : MonoBehaviour {
 			g.breakForce = 0f;
 		}
 		currentGripState = GripState.LetGo;
-		SetReachDirection(Right, Up);
+		SetReachForce(Right, Up);
 	}
 	
 	public void Grip(float Right, float Up) {
 		if (currentGripState != GripState.Gripped) {
 			currentGripState = GripState.Gripping;
-			SetReachDirection(Right, Up);
+			SetReachForce(Right, Up);
 		}
 	}
 	
 	public void Relax() {
 		if (currentLimbState != LimbState.Relaxed) {
 			currentLimbState = LimbState.Relaxed;
-			reachDirection = new Vector3(0,0,0);
 			CharacterJoint limbJoint = foreLimb.GetComponent<CharacterJoint>();
 			SoftJointLimit limbHTL = limbJoint.highTwistLimit;
 			SoftJointLimit limbLTL = limbJoint.lowTwistLimit;
