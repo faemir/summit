@@ -1,54 +1,46 @@
-﻿using UnityEngine;
+﻿/* Level Generator
+ * This script generates a roughly cylindrical climbing wall
+ */
+
+using UnityEngine;
 using System.Collections;
 
 public class LevelGenerator : MonoBehaviour 
 {
-	public Transform sidePrefab;
-	public Material material;
-	public float startRadius = 10f;
-	public int startSides = 16;
-	public int startLayers = 32;
-	public float maxLean = 1f;
-	public float maxPinch = 1f;
+	public Material material;			// The material to use on the mesh renderer
+	public float layerHeight = 1f;		// The Y distance between circles
+	public float startRadius = 10f;		// The radius of the first 'circle'
+	public int layers = 32;				// The number of circles to draw
+	public int sides = 16;				// The number of sides for this 'circle'
+	public float maxLean = 1f;			// The maximum X/Y distance between each circle
+	public float maxPinch = 1f;			// The maximum change in radius between circles
 	
 	private float radius;
-	private int sides;
-	private int layers;
-	private float layerHeight;
 	private float innerAngle = 0f;
 	private Vector3 columnHead = Vector3.zero;
-	private Vector3 columnHead2 = Vector3.up;
-	private float sideLength;
+	// Mesh related data
+	private Vector3[] vertices;
+	private Vector2[] uv;
+	private Vector4[] tangents;
+	private int[] triangles;
+	
 	
 	void Start () 
 	{
 		// Initial values
 		radius = startRadius;
-		sides = startSides;
-		layers = startLayers;
 		innerAngle = 360f / (float)sides;
-		sideLength = 2f * radius * Mathf.Tan(Mathf.Deg2Rad * 180f / (float) sides);
-		Vector3 prefabScale = sidePrefab.localScale;
-		prefabScale.x = sideLength;
-		sidePrefab.localScale = prefabScale;
-		layerHeight = prefabScale.y;
 		// Start generation
-		StartCoroutine("Generate");
+		Generate();
 	}
-	
-	Vector3[] vertices;
-	Vector2[] uv;
-	Vector4[] tangents;
-	int[] triangles;
-	
-	IEnumerator Generate()
+
+	void Generate()
 	{
 		int side = 0;
 		int layer = 0;
 		Vector3 sideCenter;
 		Vector3 layerClockHand;
 		Vector3 nextColumnHead;
-		Vector3 prefabScale;
 		
 		gameObject.AddComponent<MeshFilter>();
 		gameObject.AddComponent<MeshRenderer>();
@@ -59,9 +51,12 @@ public class LevelGenerator : MonoBehaviour
 		uv = new Vector2[layers * sides];
 		tangents = new Vector4[layers * sides];
 		triangles = new int[layers * sides * 6];
+		
+		// Create vertices for each layer 
 		int index = 0;
 		for ( layer = 0; layer < layers; layer++ )
 		{
+			// Create a vertex for each 'side', then rotate by innerAngle
 			for ( side = 0; side < sides; side++ )
 			{
 				Vector3 vertex = columnHead + (transform.forward * radius);
@@ -70,24 +65,34 @@ public class LevelGenerator : MonoBehaviour
 				Vector3 r = new Vector3(Random.Range(-0.01f,0.01f),0f,Random.Range(-0.01f,0.01f));
 				transform.Rotate(Vector3.up, innerAngle);
 			}
+			// Before moving onto the next layer move the columnHead up
 			nextColumnHead = new Vector3(Random.Range(-maxLean,maxLean), layerHeight, Random.Range(-maxLean, maxLean));
 			columnHead += nextColumnHead;
+			// and modify the radius
 			radius += Random.Range(-maxPinch, maxPinch);
 		}
 		
+		// For simplicity, fill the triangles index after creating all the vertices.
+		// Each triangles[] element is an index to the vertices[] array
+		// So each element in triangles[] is really indicating a point on a triangle
+		// Every 3 points are the points for one triangle.
 		for ( layer =0; layer < layers-1; layer++ )
 		{
 			for ( side = 0; side < sides-1; side++ )
 			{
+				// Two triangles make a square.
+				// Triangle one
 				triangles[index++] = (layer    *sides) + side;
 				triangles[index++] = (layer    *sides) + side + 1;
 				triangles[index++] = ((layer+1)*sides) + side;
-				
+				// Triangle two
 				triangles[index++] = ((layer+1)*sides) + side;
 				triangles[index++] = ( layer   *sides) + side + 1;
 				triangles[index++] = ((layer+1)*sides) + side + 1;
 			}
-			
+			// These two triangles join the ends of each layer
+			// This is best explained by removing the code for them to see what happens...
+			// (hint: look all around the mesh, easier to spot with less sides)
 			triangles[index++] = ( layer   *sides);
 			triangles[index++] = ((layer+1)*sides);
 			triangles[index++] = ( layer   *sides) + sides-1;
@@ -96,37 +101,12 @@ public class LevelGenerator : MonoBehaviour
 			triangles[index++] = ((layer+1)*sides) + sides-1;
 			triangles[index++] = ( layer   *sides) + sides-1;
 		}
-		
-		
-		
+		// Assign our mesh data to the mesh
 		mesh.vertices = vertices;
 		mesh.uv = uv;
 		mesh.triangles = triangles;
-		
 		mesh.RecalculateNormals();
-		
-		/*
-		for ( layer = 0; layer<layers; layer++ )
-		{
-			for ( side=0; side<sides; side++ )
-			{
-				layerClockHand = transform.forward * radius;
-				sideCenter = columnHead + layerClockHand;
-				Instantiate(sidePrefab, sideCenter, Quaternion.LookRotation(layerClockHand));
-				
-				transform.Rotate(Vector3.up, innerAngle);
-			}
-			nextColumnHead = new Vector3(Random.Range(-maxLean,maxLean), layerHeight, Random.Range(-maxLean, maxLean));
-			columnHead += nextColumnHead;
-			radius += Random.Range(-maxPinch, maxPinch);
-			sideLength = 2f * radius * Mathf.Tan(Mathf.Deg2Rad * 180f / (float) sides);
-			prefabScale = sidePrefab.localScale;
-			prefabScale.x = sideLength;
-			sidePrefab.localScale = prefabScale;
-			yield return new WaitForFixedUpdate();
-		}
-		*/
-		
-		yield return new WaitForSeconds(0.1f);
+		// Create a physics component for our new mesh (mesh ignores all collisions otherwise)
+		gameObject.AddComponent<MeshCollider>();
 	}
 }
