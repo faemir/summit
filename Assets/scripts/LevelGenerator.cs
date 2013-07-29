@@ -38,9 +38,6 @@ public class LevelGenerator : MonoBehaviour
 	{
 		int side = 0;
 		int layer = 0;
-		Vector3 sideCenter;
-		Vector3 layerClockHand;
-		Vector3 nextColumnHead;
 		
 		gameObject.AddComponent<MeshFilter>();
 		gameObject.AddComponent<MeshRenderer>();
@@ -52,7 +49,6 @@ public class LevelGenerator : MonoBehaviour
 		triangles = new int[layers * sides * 6];
 		
 		// Create vertices for each layer 
-		int index = 0;
 		for ( layer = 0; layer < layers; layer++ )
 		{
 			// Create a vertex for each 'side', then rotate by innerAngle
@@ -66,7 +62,7 @@ public class LevelGenerator : MonoBehaviour
 				transform.Rotate(Vector3.up, innerAngle);
 			}
 			// Before moving onto the next layer move the columnHead up
-			nextColumnHead = new Vector3(Random.Range(-maxLean,maxLean), layerHeight, Random.Range(-maxLean, maxLean));
+			Vector3 nextColumnHead = new Vector3(Random.Range(-maxLean,maxLean), layerHeight, Random.Range(-maxLean, maxLean));
 			if (debug)
 				Debug.DrawLine(columnHead, columnHead + nextColumnHead, Color.cyan, Mathf.Infinity);
 			columnHead += nextColumnHead;
@@ -78,6 +74,7 @@ public class LevelGenerator : MonoBehaviour
 		// Each triangles[] element is an index to the vertices[] array
 		// So each element in triangles[] is really indicating a point on a triangle
 		// Every 3 points are the points for one triangle.
+		int index = 0;
 		for ( layer =0; layer < layers-1; layer++ )
 		{
 			for ( side = 0; side < sides-1; side++ )
