@@ -14,6 +14,7 @@ public class LevelGenerator : MonoBehaviour
 	public int sides = 16;				// The number of sides for this 'circle'
 	public float maxLean = 1f;			// The maximum X/Y distance between each circle
 	public float maxPinch = 1f;			// The maximum change in radius between circles
+	public bool debug = true;
 	
 	private float radius;
 	private float innerAngle = 0f;
@@ -21,7 +22,6 @@ public class LevelGenerator : MonoBehaviour
 	// Mesh related data
 	private Vector3[] vertices;
 	private Vector2[] uv;
-	private Vector4[] tangents;
 	private int[] triangles;
 	
 	
@@ -49,7 +49,6 @@ public class LevelGenerator : MonoBehaviour
 		Mesh mesh = GetComponent<MeshFilter>().mesh;
 		vertices = new Vector3[layers * sides];
 		uv = new Vector2[layers * sides];
-		tangents = new Vector4[layers * sides];
 		triangles = new int[layers * sides * 6];
 		
 		// Create vertices for each layer 
@@ -62,11 +61,14 @@ public class LevelGenerator : MonoBehaviour
 				Vector3 vertex = columnHead + (transform.forward * radius);
 				vertices[ layer*sides + side ] = vertex;
 				uv[layer*sides + side] = new Vector2(side, layer);
-				Vector3 r = new Vector3(Random.Range(-0.01f,0.01f),0f,Random.Range(-0.01f,0.01f));
+				if (debug)
+					Debug.DrawLine(columnHead, vertex, Color.magenta, Mathf.Infinity);
 				transform.Rotate(Vector3.up, innerAngle);
 			}
 			// Before moving onto the next layer move the columnHead up
 			nextColumnHead = new Vector3(Random.Range(-maxLean,maxLean), layerHeight, Random.Range(-maxLean, maxLean));
+			if (debug)
+				Debug.DrawLine(columnHead, columnHead + nextColumnHead, Color.cyan, Mathf.Infinity);
 			columnHead += nextColumnHead;
 			// and modify the radius
 			radius += Random.Range(-maxPinch, maxPinch);
