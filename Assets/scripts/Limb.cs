@@ -23,8 +23,9 @@ public class Limb : MonoBehaviour {
 	private CharacterJoint upperLimbJoint; // shoulder/hip
 	private GripState currentGripState = GripState.LetGo;
 	private LimbState currentLimbState = LimbState.Relaxed;
-	private Vector3 reachForce;
+	//private Vector3 reachForce;
 	private float limbMass;
+	private Vector3 reachVelocity;
 	
 	// Use this for initialization
 	private void Start () {
@@ -35,19 +36,21 @@ public class Limb : MonoBehaviour {
 	}
 	
 	private void FixedUpdate() {
-		rigidbody.AddForce(reachForce, ForceMode.Force);
-		Debug.DrawRay(transform.position, reachForce);
+		rigidbody.AddForce(reachVelocity, ForceMode.VelocityChange);
+		Debug.DrawRay(transform.position, reachVelocity);
 	}
-	
+	//this is working out the movement of the limb, left/right and up/down
 	private void SetReachForce(float Right, float Up) {
 		
 		Transform cam = Camera.main.transform;
 		Vector3 reachDirection = (cam.right * Right) + (cam.up * Up);
 		reachDirection = Vector3.Normalize(reachDirection); //set reachDirection magnitude to 1
-		reachForce = -Physics.gravity * limbMass;
-		reachForce += reachDirection * maxReachForce;
+		//reachForce = -Physics.gravity * limbMass;
+		//reachForce += reachDirection * maxReachForce;
+		reachVelocity = -rigidbody.velocity;
+		reachVelocity += reachDirection * maxReachForce; //change to veloc
 	}
-	
+	//wht we do when we collide with another game object
 	private void OnCollisionStay(Collision info) {
 		if (currentGripState == GripState.Gripping)
 			switch (info.gameObject.tag) {
@@ -60,22 +63,22 @@ public class Limb : MonoBehaviour {
 				break;			
 		}		
 	}
-	
+	//grab is called when the player tries to grab, and tries to make a fixedjoint between the hand and the wall
 	private void Grab(){
 		Debug.Log("Grab attempt " + gameObject.name);
 		currentGripState = GripState.Gripped;
 		FixedJoint activeHold = gameObject.AddComponent<FixedJoint>();
-		activeHold.breakForce = 2f;
+		activeHold.breakForce = 1.8f;
 
 	}
-	
+	//this is the same as the previous, except when a parameter is passed of a game object (ie. the hold in question)
 	private void Grab(Rigidbody grabme) {
 	
 		Debug.Log("Grab attempt " + gameObject.name);
 		currentGripState = GripState.Gripped;
 		FixedJoint activeHold = gameObject.AddComponent<FixedJoint>();
 		activeHold.connectedBody = grabme;
-		activeHold.breakForce = 2f;
+		activeHold.breakForce = 1.8f;
 	}
 	
 	
@@ -97,7 +100,7 @@ public class Limb : MonoBehaviour {
 			SetReachForce(Right, Up);
 		}
 	}
-	
+	// find the elbow, and set it's rotational limits to relax the arm
 	public void Relax() {
 		if (currentLimbState != LimbState.Relaxed) {
 			currentLimbState = LimbState.Relaxed;
@@ -110,7 +113,7 @@ public class Limb : MonoBehaviour {
 			limbJoint.lowTwistLimit = limbLTL;
 		}
 	}
-	
+	// find the elbow, and set it's rotational limits to contract the arm
 	public void Contract() {
 		if (currentLimbState != LimbState.Contracting) {
 			currentLimbState = LimbState.Contracting;
@@ -123,7 +126,7 @@ public class Limb : MonoBehaviour {
 			limbJoint.lowTwistLimit = limbLTL;
 		}
 	}
-	
+	// find the elbow, and set it's rotational limits to extend the arm
 	public void Extend() {
 		if (currentLimbState != LimbState.Extending) {
 			currentLimbState = LimbState.Extending;
