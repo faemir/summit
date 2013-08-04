@@ -11,10 +11,10 @@ public class LevelGenerator : MonoBehaviour
 	public float layerHeight = 1f;		// The Y distance between circles
 	public float startRadius = 10f;		// The radius of the first 'circle'
 	public int layers = 32;				// The number of circles to draw
-	public int sides = 16;				// The number of sides for this 'circle'
+	public int sides = 128;				// The number of sides for this 'circle'
 	public float maxLean = 1f;			// The maximum X/Y distance between each circle
 	public float maxPinch = 1f;			// The maximum change in radius between circles
-	public bool debug = true;
+	public bool debug = false;
 	
 	private float radius;
 	private float innerAngle = 0f;
@@ -24,12 +24,17 @@ public class LevelGenerator : MonoBehaviour
 	private Vector2[] uv;
 	private int[] triangles;
 	
+	// Nodes
+	private int nodeIndex = -1;			// The current 'side' that a node is on
+	private int nodeMaxVariance = 1; 	//maximum distance between nodes (on X/Y plane) in vertices
+	
 	
 	void Start () 
 	{
 		// Initial values
 		radius = startRadius;
 		innerAngle = 360f / (float)sides;
+		nodeIndex = Random.Range (0,sides);
 		// Start generation
 		Generate();
 	}
@@ -55,10 +60,16 @@ public class LevelGenerator : MonoBehaviour
 			for ( side = 0; side < sides; side++ )
 			{
 				Vector3 vertex = columnHead + (transform.forward * radius);
+				//node check
+				if (side == nodeIndex) {
+					vertex = columnHead;
+					Debug.DrawLine(columnHead, vertex, Color.yellow, Mathf.Infinity);
+				}
 				vertices[ layer*sides + side ] = vertex;
 				uv[layer*sides + side] = new Vector2(side, layer);
 				if (debug)
 					Debug.DrawLine(columnHead, vertex, Color.magenta, Mathf.Infinity);
+				
 				transform.Rotate(Vector3.up, innerAngle);
 			}
 			// Before moving onto the next layer move the columnHead up
@@ -68,6 +79,8 @@ public class LevelGenerator : MonoBehaviour
 			columnHead += nextColumnHead;
 			// and modify the radius
 			radius += Random.Range(-maxPinch, maxPinch);
+			//set the next nodeIndex, code is placed here assuming one node per layer
+			nodeIndex = Random.Range (-nodeMaxVariance,nodeMaxVariance) % sides;
 		}
 		
 		// For simplicity, fill the triangles index after creating all the vertices.
