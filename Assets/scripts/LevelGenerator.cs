@@ -11,7 +11,7 @@ public class LevelGenerator : MonoBehaviour
 	public float layerHeight = 1f;		// The Y distance between circles
 	public float startRadius = 10f;		// The radius of the first 'circle'
 	public int layers = 32;				// The number of circles to draw
-	public int sides = 128;				// The number of sides for this 'circle'
+	public int sides = 64;				// The number of sides for this 'circle'
 	public float maxLean = 1f;			// The maximum X/Y distance between each circle
 	public float maxPinch = 1f;			// The maximum change in radius between circles
 	public bool debug = false;
@@ -24,9 +24,10 @@ public class LevelGenerator : MonoBehaviour
 	private Vector2[] uv;
 	private int[] triangles;
 	
-	// Nodes
-	private int nodeIndex = -1;			// The current 'side' that a node is on
-	private int nodeMaxVariance = 1; 	//maximum distance between nodes (on X/Y plane) in vertices
+	// nodePaths
+	//TODO: think about forks/joins/etc.
+	private int[] nodePaths = new int[1]{-1}; // Value is the current 'side' that the path is on
+	private int nodeMaxVariance = 2; 	 // maximum distance between nodePaths (on X/Y plane) in vertices
 	
 	
 	void Start () 
@@ -34,7 +35,12 @@ public class LevelGenerator : MonoBehaviour
 		// Initial values
 		radius = startRadius;
 		innerAngle = 360f / (float)sides;
-		nodeIndex = Random.Range (0,sides);
+		
+		//two paths for debug
+		nodePaths = new int[2];
+		nodePaths[0] = 16;
+		nodePaths[1] = 32;
+		
 		// Start generation
 		Generate();
 	}
@@ -60,10 +66,13 @@ public class LevelGenerator : MonoBehaviour
 			for ( side = 0; side < sides; side++ )
 			{
 				Vector3 vertex = columnHead + (transform.forward * radius);
-				//node check
-				if (side == nodeIndex) {
-					vertex = columnHead;
-					Debug.DrawLine(columnHead, vertex, Color.yellow, Mathf.Infinity);
+				//nodes, should we move this to just before mesh creation?
+				for (int node = 0;node<nodePaths.Length;node++) {
+					if (side == nodePaths[node]) {
+						vertex = columnHead; //make a crack, mainly to visualise
+						if (debug)
+							Debug.DrawLine(columnHead, vertex, Color.yellow, Mathf.Infinity);
+					}
 				}
 				vertices[ layer*sides + side ] = vertex;
 				uv[layer*sides + side] = new Vector2(side, layer);
@@ -79,8 +88,14 @@ public class LevelGenerator : MonoBehaviour
 			columnHead += nextColumnHead;
 			// and modify the radius
 			radius += Random.Range(-maxPinch, maxPinch);
-			//set the next nodeIndex, code is placed here assuming one node per layer
-			nodeIndex = Random.Range (-nodeMaxVariance,nodeMaxVariance) % sides;
+			
+			// set the nodePaths for the next layer
+			for (int node=0;node<nodePaths.Length;node++) {
+				nodePaths[node] = (nodePaths[node] + Random.Range (-nodeMaxVariance,nodeMaxVariance)) % sides;
+				//if negative, wrap around
+				if (nodePaths[node]<0)
+					nodePaths[node] = sides - ((nodePaths[node]*-1)%sides)+1;
+			}
 		}
 		
 		// For simplicity, fill the triangles index after creating all the vertices.
