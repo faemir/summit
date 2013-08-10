@@ -12,6 +12,7 @@ public class LevelGenerator : MonoBehaviour
 	public float startRadius = 10f;		// The radius of the first 'circle'
 	public int layers = 32;				// The number of circles to draw
 	public int sides = 64;				// The number of sides for this 'circle'
+	//public float maxRadius = 2f;		// The thinnest radius for any circle
 	public float maxLean = 1f;			// The maximum X/Y distance between each circle
 	public float maxPinch = 1f;			// The maximum change in radius between circles
 	public bool debug = false;
@@ -26,9 +27,9 @@ public class LevelGenerator : MonoBehaviour
 	
 	// nodePaths
 	//TODO: think about forks/joins/etc.
-	private int[] nodePaths = new int[1]{-1}; // Value is the current 'side' that the path is on
-	private int nodeMaxVariance = 2; 	 // maximum distance between nodePaths (on X/Y plane) in vertices
-	
+	private int[] nodePaths = new int[1]{-1}; 	// Value is the current 'side' that the path is on
+	private int nodeMaxVariance = 2; 	 		// maximum distance between nodePaths (on X/Y plane) in vertices
+	private int nodePathLastForkedAt = -1;		// Stores when any nodePath last forked (could go object-oriented and have it a property of each nodepath)
 	
 	void Start () 
 	{
@@ -73,6 +74,18 @@ public class LevelGenerator : MonoBehaviour
 						if (debug)
 							Debug.DrawLine(columnHead, vertex, Color.yellow, Mathf.Infinity);
 					}
+					
+					//Path Forking
+					//5 is the minimum vertical distance that two forks can be from each other (should be made into a const)
+					if (nodePathLastForkedAt < (side-5)) {
+						//todo: come up with a way of making the two forks branch off (path directions or forced variance etc)
+						if (Random.Range (0,9)==5) {
+							//todo: here's where the fork code is supposed to be
+							
+							if (debug)
+								Debug.DrawLine (columnHead,vertex,Color.green, Mathf.Infinity);
+						}
+					}
 				}
 				vertices[ layer*sides + side ] = vertex;
 				uv[layer*sides + side] = new Vector2(side, layer);
@@ -90,11 +103,11 @@ public class LevelGenerator : MonoBehaviour
 			radius += Random.Range(-maxPinch, maxPinch);
 			
 			// set the nodePaths for the next layer
-			for (int node=0;node<nodePaths.Length;node++) {
-				nodePaths[node] = (nodePaths[node] + Random.Range (-nodeMaxVariance,nodeMaxVariance)) % sides;
+			for (int path=0;path<nodePaths.Length;path++) {
+				nodePaths[path] = (nodePaths[path] + Random.Range (-nodeMaxVariance,nodeMaxVariance)) % sides;
 				//if negative, wrap around
-				if (nodePaths[node]<0)
-					nodePaths[node] = sides - ((nodePaths[node]*-1)%sides)+1;
+				if (nodePaths[path]<0)
+					nodePaths[path] = sides - ((nodePaths[path]*-1)%sides)+1;
 			}
 		}
 		
