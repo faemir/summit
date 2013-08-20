@@ -21,105 +21,188 @@ using System.Collections;
 
 public class LevelGenerator : MonoBehaviour 
 {
-	public Material material;			// The material to use on the mesh renderer
-	public float layerHeight = 1f;		// The Y distance between circles
-	public float startRadius = 10f;		// The radius of the first 'circle'
-	public int layers = 32;				// The number of circles to draw
-	public int sides = 16;				// The number of sides for this 'circle'
-	public float maxLean = 1f;			// The maximum X/Y distance between each circle
-	public float maxPinch = 1f;			// The maximum change in radius between circles
+	// Unique data for each stage (serializable)
+	[System.Serializable]
+	public class StageProperties
+	{
+		public Material[] materials;
+		public Transform[] hazards;
+		public float height;
+		public float maxSinAmp;
+		public float minSinAmp;
+		public float maxSinOff;
+		public float minSinOff;
+		public float maxSinFrq;
+		public float minSinFrq;
+		public float maxSinPhs;
+		public float minSinPhs;
+	}
+	
+	public Transform[] handHolds;
+	public int verticesBetweenSinusoids = 16;			// The number of sides for this 'circle'
+	public int sinusoidCount = 4;
+	public float layerHeight = 1f;
+	public float vertVariation = 0.125f;
+	public StageProperties[] stages = new StageProperties[4];
+	
+	
 	public bool debug = true;
 	
-	private float radius;
+	private int vertsPerLayer;
 	private float innerAngle = 0f;
-	private Vector3 columnHead = Vector3.zero;
-	// Mesh related data
-	private Vector3[] vertices;
+	private Vector3 layerCenter = Vector3.zero;
+	
+	private Vector3[] verts;
 	private Vector2[] uv;
 	private int[] triangles;
-	
 	
 	void Start () 
 	{
 		// Initial values
-		radius = startRadius;
-		innerAngle = 360f / (float)sides;
+		vertsPerLayer = verticesBetweenSinusoids * sinusoidCount;
+		innerAngle = 360f / (float)vertsPerLayer;
+		
+		// Size mesh data
+		int vertcount = 0;
+		int trianglecount = 0;
+		for ( int i = 0; i < stages.Length; i++ )
+		{
+			vertcount += (int)(stages[i].height / layerHeight) * vertsPerLayer;
+			trianglecount += (int)(stages[i].height / layerHeight) * vertsPerLayer * 6;
+		}
+		verts = new Vector3[vertcount];
+		uv = new Vector2[vertcount];
+		triangles = new int[trianglecount];
+		
 		// Start generation
-		Generate();
+		gameObject.AddComponent<MeshFilter>();
+		Generate(stages[0]);
+		
 	}
 
-	void Generate()
+	void Generate(StageProperties stage)
 	{
-		int side = 0;
-		int layer = 0;
+		int layers = (int)(stage.height / layerHeight);
 		
-		gameObject.AddComponent<MeshFilter>();
-		gameObject.AddComponent<MeshRenderer>();
-		renderer.material = material;
+		// Mesh data
+
 		
-		Mesh mesh = GetComponent<MeshFilter>().mesh;
-		vertices = new Vector3[layers * sides];
-		uv = new Vector2[layers * sides];
-		triangles = new int[layers * sides * 6];
-		
-		// Create vertices for each layer 
-		for ( layer = 0; layer < layers; layer++ )
+		// <sinusoid parameters>
+		float[] freq = new float[sinusoidCount];
+		for ( int i = 0; i < sinusoidCount; i++)
 		{
-			// Create a vertex for each 'side', then rotate by innerAngle
-			for ( side = 0; side < sides; side++ )
+			freq[i] = Random.Range(stage.minSinFrq, stage.maxSinFrq);
+		}
+		
+		float[] amp = new float[sinusoidCount];
+		for ( int i = 0; i < sinusoidCount; i++)
+		{
+			amp[i] = Random.Range(stage.minSinAmp, stage.maxSinAmp);
+		}
+		
+		float[] off = new float[sinusoidCount];
+		for ( int i = 0; i < sinusoidCount; i++)
+		{
+			off[i] = Random.Range(stage.minSinOff, stage.maxSinOff);
+		}
+		
+		float[] phas = new float[sinusoidCount];
+		for ( int i = 0; i < sinusoidCount; i++)
+		{
+			phas[i] = Random.Range(stage.minSinPhs, stage.maxSinPhs);
+		}
+		// </sinusoid parameters>
+		
+		float[] sin = new float[sinusoidCount];
+		// <vertices and uv generation>
+		float radius = 0f;
+		float sinrad_next; float sinrad_prev;
+		float sinvert_next; float sinvert_prev = 0f;
+		for ( int layer = 0; layer < layers; layer++ )
+		{
+			// calculate next sinusoid value
+			for ( int i = 0; i < sinusoidCount; i++ )
 			{
-				Vector3 vertex = columnHead + (transform.forward * radius);
-				vertices[ layer*sides + side ] = vertex;
-				uv[layer*sides + side] = new Vector2(side, layer);
-				if (debug)
-					Debug.DrawLine(columnHead, vertex, Color.magenta, Mathf.Infinity);
+				sin[i] = amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * layer + phas[i]) + off[i];
+			}
+			
+			int sinIndex = 0;
+			for ( int vert = 0; vert < vertsPerLayer; vert++ )
+			{
+				// insert sinusoid values as radii
+				if ( vert % verticesBetweenSinusoids == 0 ) 
+				{
+					radius = sin[sinIndex++];
+					sinvert_prev = vert;
+				}
+				// interpolate radii between sinusoids
+				else
+				{
+					if ( sinIndex < sinusoidCount )
+					{
+						sinrad_prev = sin[sinIndex - 1];
+						sinrad_next = sin[sinIndex];
+						sinvert_next = vert + verticesBetweenSinusoids - (vert % verticesBetweenSinusoids);
+					}
+					else
+					{
+						sinrad_prev = sin[sinIndex - 1];
+						sinrad_next = sin[0];
+						sinvert_next = vert + verticesBetweenSinusoids - (vert % verticesBetweenSinusoids);
+					}
+					radius = sinrad_prev + (vert - sinvert_prev) * (sinrad_next - sinrad_prev) / (sinvert_next - sinvert_prev);
+				}
+				Vector3 vertex = layerCenter + transform.forward * radius;
+				Vector3 vertexNoise = Random.insideUnitSphere * vertVariation;
+				vertex += vertexNoise;
+				verts[ layer*vertsPerLayer + vert] = vertex;
+				uv[ layer*vertsPerLayer + vert] = new Vector2(vert, layer);
 				transform.Rotate(Vector3.up, innerAngle);
 			}
-			// Before moving onto the next layer move the columnHead up
-			Vector3 nextColumnHead = new Vector3(Random.Range(-maxLean,maxLean), layerHeight, Random.Range(-maxLean, maxLean));
-			if (debug)
-				Debug.DrawLine(columnHead, columnHead + nextColumnHead, Color.cyan, Mathf.Infinity);
-			columnHead += nextColumnHead;
-			// and modify the radius
-			radius += Random.Range(-maxPinch, maxPinch);
+			layerCenter += Vector3.up * layerHeight;
 		}
+		// </vertices and uv generation>
 		
 		// For simplicity, fill the triangles index after creating all the vertices.
 		// Each triangles[] element is an index to the vertices[] array
 		// So each element in triangles[] is really indicating a point on a triangle
 		// Every 3 points are the points for one triangle.
 		int index = 0;
-		for ( layer =0; layer < layers-1; layer++ )
+		for ( int layer = 0; layer < layers-1; layer++ )
 		{
-			for ( side = 0; side < sides-1; side++ )
+			for ( int vert = 0; vert < vertsPerLayer-1; vert++ )
 			{
 				// Two triangles make a square.
 				// Triangle one
-				triangles[index++] = (layer    *sides) + side;
-				triangles[index++] = (layer    *sides) + side + 1;
-				triangles[index++] = ((layer+1)*sides) + side;
+				triangles[index++] = (layer    *vertsPerLayer) + vert;
+				triangles[index++] = (layer    *vertsPerLayer) + vert + 1;
+				triangles[index++] = ((layer+1)*vertsPerLayer) + vert;
 				// Triangle two
-				triangles[index++] = ((layer+1)*sides) + side;
-				triangles[index++] = ( layer   *sides) + side + 1;
-				triangles[index++] = ((layer+1)*sides) + side + 1;
+				triangles[index++] = ((layer+1)*vertsPerLayer) + vert;
+				triangles[index++] = ( layer   *vertsPerLayer) + vert + 1;
+				triangles[index++] = ((layer+1)*vertsPerLayer) + vert + 1;
 			}
 			// These two triangles join the ends of each layer
 			// This is best explained by removing the code for them to see what happens...
 			// (hint: look all around the mesh, easier to spot with less sides)
-			triangles[index++] = ( layer   *sides);
-			triangles[index++] = ((layer+1)*sides);
-			triangles[index++] = ( layer   *sides) + sides-1;
+			triangles[index++] = ( layer   *vertsPerLayer);
+			triangles[index++] = ((layer+1)*vertsPerLayer);
+			triangles[index++] = ( layer   *vertsPerLayer) + vertsPerLayer-1;
 			
-			triangles[index++] = ((layer+1)*sides);
-			triangles[index++] = ((layer+1)*sides) + sides-1;
-			triangles[index++] = ( layer   *sides) + sides-1;
+			triangles[index++] = ((layer+1)*vertsPerLayer);
+			triangles[index++] = ((layer+1)*vertsPerLayer) + vertsPerLayer-1;
+			triangles[index++] = ( layer   *vertsPerLayer) + vertsPerLayer-1;
 		}
 		// Assign our mesh data to the mesh
-		mesh.vertices = vertices;
+		Mesh mesh = GetComponent<MeshFilter>().mesh;
+		mesh.vertices = verts;
 		mesh.uv = uv;
 		mesh.triangles = triangles;
 		mesh.RecalculateNormals();
 		// Create a physics component for our new mesh (mesh ignores all collisions otherwise)
 		gameObject.AddComponent<MeshCollider>();
+		// Render dat mesh 
+		gameObject.AddComponent<MeshRenderer>();
+		renderer.material = stage.materials[0];
 	}
 }
