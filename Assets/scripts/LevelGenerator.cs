@@ -39,6 +39,7 @@ public class LevelGenerator : MonoBehaviour
 	}
 	
 	public Transform[] handHolds;
+	public Transform cloudLayer;
 	public int verticesBetweenSinusoids = 16;			// The number of sides for this 'circle'
 	public int sinusoidCount = 4;
 	public float layerHeight = 1f;
@@ -63,12 +64,14 @@ public class LevelGenerator : MonoBehaviour
 		innerAngle = 360f / (float)vertsPerLayer;
 		
 		// Size mesh data
+		int layers;
 		int vertcount = 0;
 		int trianglecount = 0;
 		for ( int i = 0; i < stages.Length; i++ )
 		{
-			vertcount += (int)(stages[i].height / layerHeight) * vertsPerLayer;
-			trianglecount += (int)(stages[i].height / layerHeight) * vertsPerLayer * 6;
+			layers = (int)(stages[i].height / layerHeight);
+			vertcount += layers * vertsPerLayer;
+			trianglecount += layers * vertsPerLayer * 6;
 		}
 		verts = new Vector3[vertcount];
 		uv = new Vector2[vertcount];
@@ -83,9 +86,6 @@ public class LevelGenerator : MonoBehaviour
 	void Generate(StageProperties stage)
 	{
 		int layers = (int)(stage.height / layerHeight);
-		
-		// Mesh data
-
 		
 		// <sinusoid parameters>
 		float[] freq = new float[sinusoidCount];
@@ -204,5 +204,8 @@ public class LevelGenerator : MonoBehaviour
 		// Render dat mesh 
 		gameObject.AddComponent<MeshRenderer>();
 		renderer.material = stage.materials[0];
+		
+		// Spawn a cloud layer!
+		Instantiate(cloudLayer, layerCenter + Vector3.back * 10f, Quaternion.identity);
 	}
 }
