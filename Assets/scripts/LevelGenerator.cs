@@ -27,6 +27,7 @@ public class LevelGenerator : MonoBehaviour
 	{
 		public Material[] materials;
 		public Transform[] hazards;
+		public int numberOfRoutes;
 		public float height;
 		public float maxSinAmp;
 		public float minSinAmp;
@@ -113,6 +114,14 @@ public class LevelGenerator : MonoBehaviour
 		}
 		// </sinusoid parameters>
 		
+		// <path nodes>
+		int[] nodes = new int[stage.numberOfRoutes];
+		for ( int i = 0; i < nodes.Length; i++)
+		{
+			nodes[i] = Random.Range(0, vertsPerLayer);
+		}
+		// </path nodes>
+		
 		float[] sin = new float[sinusoidCount];
 		// <vertices and uv generation>
 		float radius = 0f;
@@ -139,22 +148,34 @@ public class LevelGenerator : MonoBehaviour
 				else
 				{
 					if ( sinIndex < sinusoidCount )
-					{
-						sinrad_prev = sin[sinIndex - 1];
 						sinrad_next = sin[sinIndex];
-						sinvert_next = vert + verticesBetweenSinusoids - (vert % verticesBetweenSinusoids);
-					}
 					else
-					{
-						sinrad_prev = sin[sinIndex - 1];
 						sinrad_next = sin[0];
-						sinvert_next = vert + verticesBetweenSinusoids - (vert % verticesBetweenSinusoids);
-					}
+					sinrad_prev = sin[sinIndex - 1];
+					sinvert_next = vert + verticesBetweenSinusoids - (vert % verticesBetweenSinusoids);
 					radius = sinrad_prev + (vert - sinvert_prev) * (sinrad_next - sinrad_prev) / (sinvert_next - sinvert_prev);
 				}
+				// calculate vertex position from radius
+				radius += Random.Range(-1,1) * vertVariation;
 				Vector3 vertex = layerCenter + transform.forward * radius;
-				Vector3 vertexNoise = Random.insideUnitSphere * vertVariation;
-				vertex += vertexNoise;
+				//Vector3 vertexNoise = Random.insideUnitSphere * vertVariation;
+				//vertex += vertexNoise;
+				// place handholds
+				for (int i = 0; i < nodes.Length; i++ )
+				{
+					if ( layer % 8 == 0 )
+					{
+						//int holdIndex = Random.Range(0, handHolds.Length);
+						//Instantiate(handHolds[holdIndex], vertex, Quaternion.identity);
+					}
+					else if ( vert == nodes[i] )
+					{
+						int holdIndex = Random.Range(0, handHolds.Length);
+						Instantiate(handHolds[holdIndex], vertex, Quaternion.identity);
+						nodes[i] += Random.Range(-1, 1);
+					}
+				}
+				// store vertex in verts[]
 				verts[ layer*vertsPerLayer + vert] = vertex;
 				uv[ layer*vertsPerLayer + vert] = new Vector2(vert, layer);
 				transform.Rotate(Vector3.up, innerAngle);
