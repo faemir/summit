@@ -46,6 +46,7 @@ public class LevelGenerator : MonoBehaviour
 	public int sinusoidCount = 4;
 	public float layerHeight = 1f;
 	public float vertVariation = 0.125f;
+	public float minimumRadius = 2f;
 	public StageProperties[] stages = new StageProperties[4];
 	
 	
@@ -58,6 +59,17 @@ public class LevelGenerator : MonoBehaviour
 	private Vector3[] verts;
 	private Vector2[] uv;
 	private int[] triangles;
+	
+	private struct layerInfo
+	{
+		public int index;
+		public float[] sinValues;
+		public layerInfo(int layerNumber, float[] sinusoidValues)
+		{
+			index = layerNumber;
+			sinValues = sinusoidValues;
+		}
+	}
 	
 	void Start () 
 	{
@@ -88,18 +100,25 @@ public class LevelGenerator : MonoBehaviour
 		verts = new Vector3[vertcount];
 		uv = new Vector2[vertcount];
 		triangles = new int[trianglecount];
-		
+		Debug.Log ("Number of vertices: " + vertcount);
 		// Generate mesh data for each stage
-		int startLayer = 0;
+		layerInfo info;
+		info.index = 0;
+		info.sinValues = new float[sinusoidCount];
+		for ( int i = 0; i < sinusoidCount; i++)
+		{
+			info.sinValues[i] = Random.Range(stages[0].minSinOff, stages[0].maxSinOff);
+		}
+
 		for ( int i = 0; i < stages.Length; i++)
 		{
-			startLayer = GenerateMeshData(stages[i], startLayer);
+			info = GenerateMeshData(stages[i], info);
 		}
 		// Create mesh
 		CreateMesh();
 	}
 	
-	int GenerateMeshData(StageProperties stage, int startLayer)
+	layerInfo GenerateMeshData(StageProperties stage, layerInfo prevInfo)
 	{
 		int layerCount = (int)(stage.height / layerHeight);
 		// <sinusoid parameters>
@@ -144,17 +163,26 @@ public class LevelGenerator : MonoBehaviour
 		}
 		// </hazards>
 		
-		// <vertices and uv generation>
+		
+		// <offset corrections>
 		float[] sin = new float[sinusoidCount];
+		for ( int i = 0; i < sinusoidCount; i++ )
+		{
+			sin[i] = amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * prevInfo.index + phas[i]) + off[i];
+			off[i] += prevInfo.sinValues[i] - sin[i];
+		}
+		// </offset corrections>
+		
+		// <vertices and uv generation>
 		float radius = 0f;
 		float sinrad_next; float sinrad_prev;
 		float sinvert_next; float sinvert_prev = 0f;
-		for ( int layer = startLayer; layer < startLayer + layerCount; layer++ )
+		for ( int layer = prevInfo.index; layer < prevInfo.index + layerCount; layer++ )
 		{
 			// calculate next sinusoid value
 			for ( int i = 0; i < sinusoidCount; i++ )
 			{
-				sin[i] = amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * layer + phas[i]) + off[i];
+				sin[i] = Mathf.Abs(amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * layer + phas[i]) + off[i] - minimumRadius) + minimumRadius;
 			}
 			
 			int sinIndex = 0;
@@ -177,11 +205,11 @@ public class LevelGenerator : MonoBehaviour
 					sinvert_next = vert + verticesBetweenSinusoids - (vert % verticesBetweenSinusoids);
 					radius = sinrad_prev + (vert - sinvert_prev) * (sinrad_next - sinrad_prev) / (sinvert_next - sinvert_prev);
 				}
+				// make some noise 
+				if (layer != prevInfo.index && layer != prevInfo.index + layerCount -1)
+					radius += Random.Range(-1,1) * vertVariation;
 				// calculate vertex position from radius
-				radius += Random.Range(-1,1) * vertVariation;
 				Vector3 vertex = layerCenter + transform.forward * radius;
-				//Vector3 vertexNoise = Random.insideUnitSphere * vertVariation;
-				//vertex += vertexNoise;
 				
 				// place handholds
 				for (int i = 0; i < nodes.Length; i++ )
@@ -189,8 +217,7 @@ public class LevelGenerator : MonoBehaviour
 					// skip every 3 to 8 holds
 					if ( layer % Random.Range(3,8) == 0 )
 					{
-						//int holdIndex = Random.Range(0, handHolds.Length);
-						//Instantiate(handHolds[holdIndex], vertex, Quaternion.identity);
+
 					}
 					else if ( vert == nodes[i] )
 					{
@@ -206,7 +233,6 @@ public class LevelGenerator : MonoBehaviour
 				{
 					if ( layer*vertsPerLayer + vert == hazardVerts[i] )
 					{
-						Debug.Log("Hazard placed: " + layer);
 						int hazardIndex = Random.Range(0, stage.hazards.Length);
 						Quaternion hazardRotation = Quaternion.LookRotation(vertex - layerCenter, Vector3.up);
 						Instantiate(stage.hazards[hazardIndex], vertex * 0.9f, hazardRotation);
@@ -220,6 +246,7 @@ public class LevelGenerator : MonoBehaviour
 			}
 			layerCenter += Vector3.up * layerHeight;
 		}
+		layerCenter -= Vector3.up * layerHeight;
 		// </vertices and uv generation>
 		
 		// For simplicity, fill the triangles index after creating all the vertices.
@@ -227,7 +254,7 @@ public class LevelGenerator : MonoBehaviour
 		// So each element in triangles[] is really indicating a point on a triangle
 		// Every 3 points are the points for one triangle.
 		int index = trianglesIndex;
-		for ( int layer = startLayer; layer < startLayer + layerCount-1; layer++ )
+		for ( int layer = prevInfo.index; layer < prevInfo.index + layerCount-1; layer++ )
 		{
 			for ( int vert = 0; vert < vertsPerLayer-1; vert++ )
 			{
@@ -256,7 +283,9 @@ public class LevelGenerator : MonoBehaviour
 		
 		// Spawn a cloud layer!
 		Instantiate(cloudLayer, layerCenter + Vector3.back * 10f, Quaternion.identity);
-		return startLayer + layerCount;
+		// return last layer info for next stage
+		layerInfo info = new layerInfo(prevInfo.index + layerCount, sin);
+		return info;
 	}
 	
 	void CreateMesh()
@@ -276,4 +305,5 @@ public class LevelGenerator : MonoBehaviour
 		renderer.castShadows = false;
 		renderer.receiveShadows = false;
 	}
+	
 }
