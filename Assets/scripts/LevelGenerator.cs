@@ -25,6 +25,7 @@ public class LevelGenerator : MonoBehaviour
 	[System.Serializable]
 	public class StageProperties
 	{
+		public string name;
 		public Material[] materials;
 		public Transform[] hazards;
 		public int numberOfHazards;
@@ -42,23 +43,18 @@ public class LevelGenerator : MonoBehaviour
 	
 	public Transform[] handHolds;
 	public Transform cloudLayer;
-	public int verticesBetweenSinusoids = 16;			// The number of sides for this 'circle'
+	public int verticesBetweenSinusoids = 16;			
 	public int sinusoidCount = 4;
 	public float layerHeight = 1f;
 	public float vertVariation = 0.125f;
 	public float minimumRadius = 2f;
-	public StageProperties[] stages = new StageProperties[4];
-	
-	
+	public StageProperties[] stageParemeters = new StageProperties[4];
 	public bool debug = true;
 	
 	private int vertsPerLayer;
 	private float innerAngle = 0f;
 	private Vector3 layerCenter = Vector3.zero;
-	private int trianglesIndex = 0;
-	private Vector3[] verts;
-	private Vector2[] uv;
-	private int[] triangles;
+	private Transform[] stages;
 	
 	private struct layerInfo
 	{
@@ -73,54 +69,58 @@ public class LevelGenerator : MonoBehaviour
 	
 	void Start () 
 	{
-
-		
 		// Start generation
-
 		Generate();
-		
 	}
 	
 	void Generate()
 	{
-		// Initial values
+		// Initialize
 		vertsPerLayer = verticesBetweenSinusoids * sinusoidCount;
 		innerAngle = 360f / (float)vertsPerLayer;
+		stages = new Transform[stageParemeters.Length];
 		
-		// Size mesh data
-		int layerCount;
-		int vertcount = 0;
+		// Log mesh info
+		int layerCount = 0;
 		int trianglecount = 0;
-		for ( int i = 0; i < stages.Length; i++ )
+		for ( int i = 0; i < stageParemeters.Length; i++ )
 		{
-			layerCount = (int)(stages[i].height / layerHeight);
-			vertcount += (layerCount * vertsPerLayer);
+			layerCount += (int)(stageParemeters[i].height / layerHeight);
 			trianglecount += (layerCount * vertsPerLayer * 6);
 		}
-		verts = new Vector3[vertcount];
-		uv = new Vector2[vertcount];
-		triangles = new int[trianglecount];
-		Debug.Log ("Number of vertices: " + vertcount);
-		// Generate mesh data for each stage
+		Debug.Log ("[MeshGen] Layer count: " + layerCount);
+		Debug.Log ("[MeshGen] Triangle count: " + trianglecount);
+		
+		// initialize layerInfo struct
 		layerInfo info;
 		info.index = 0;
 		info.sinValues = new float[sinusoidCount];
 		for ( int i = 0; i < sinusoidCount; i++)
 		{
-			info.sinValues[i] = Random.Range(stages[0].minSinOff, stages[0].maxSinOff);
+			info.sinValues[i] = Random.Range(stageParemeters[0].minSinOff, stageParemeters[0].maxSinOff);
 		}
-
-		for ( int i = 0; i < stages.Length; i++)
+		// Generate meshes for each stage
+		Mesh mesh;
+		for ( int i = 0; i < stageParemeters.Length; i++)
 		{
-			info = GenerateMeshData(stages[i], info);
+			mesh = GenerateMeshData(stageParemeters[i], ref info);
+			stages[i] = CreateMesh(stageParemeters[i], mesh);
 		}
-		// Create mesh
-		CreateMesh();
+		Debug.DrawLine(Vector3.zero, layerCenter, Color.white, Mathf.Infinity);
+		
+		PlaceHandholds();
 	}
 	
-	layerInfo GenerateMeshData(StageProperties stage, layerInfo prevInfo)
+	Mesh GenerateMeshData(StageProperties stage, ref layerInfo prevInfo)
 	{
+		Transform obj;
 		int layerCount = (int)(stage.height / layerHeight);
+		int vertCount = layerCount * vertsPerLayer;
+		
+		Vector3[] verts = new Vector3[vertCount];
+		Vector2[] uv = new Vector2[vertCount];
+		int[] triangles = new int[vertCount * 6];
+		
 		// <sinusoid parameters>
 		float[] freq = new float[sinusoidCount];
 		for ( int i = 0; i < sinusoidCount; i++)
@@ -177,12 +177,12 @@ public class LevelGenerator : MonoBehaviour
 		float radius = 0f;
 		float sinrad_next; float sinrad_prev;
 		float sinvert_next; float sinvert_prev = 0f;
-		for ( int layer = prevInfo.index; layer < prevInfo.index + layerCount; layer++ )
+		for ( int layer = 0; layer < layerCount; layer++ )
 		{
 			// calculate next sinusoid value
 			for ( int i = 0; i < sinusoidCount; i++ )
 			{
-				sin[i] = Mathf.Abs(amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * layer + phas[i]) + off[i] - minimumRadius) + minimumRadius;
+				sin[i] = Mathf.Abs(amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * (layer+prevInfo.index) + phas[i]) + off[i] - minimumRadius) + minimumRadius;
 			}
 			
 			int sinIndex = 0;
@@ -206,11 +206,12 @@ public class LevelGenerator : MonoBehaviour
 					radius = sinrad_prev + (vert - sinvert_prev) * (sinrad_next - sinrad_prev) / (sinvert_next - sinvert_prev);
 				}
 				// make some noise 
-				if (layer != prevInfo.index && layer != prevInfo.index + layerCount -1)
+				if (layer != 0 && layer != layerCount-1)
 					radius += Random.Range(-1,1) * vertVariation;
 				// calculate vertex position from radius
 				Vector3 vertex = layerCenter + transform.forward * radius;
 				
+				/*
 				// place handholds
 				for (int i = 0; i < nodes.Length; i++ )
 				{
@@ -223,11 +224,12 @@ public class LevelGenerator : MonoBehaviour
 					{
 						int holdIndex = Random.Range(0, handHolds.Length);
 						Quaternion holdRotation =  Quaternion.LookRotation(layerCenter - vertex, Vector3.up);
-						Instantiate(handHolds[holdIndex], vertex, holdRotation);
+						obj = Instantiate(handHolds[holdIndex], vertex, holdRotation) as Transform;
+						obj.renderer.material = stage.materials[0];
 						nodes[i] += Random.Range(-1, 1);
 					}
 				}
-				
+				*/
 				// place hazards
 				for ( int i = 0; i < hazardVerts.Length; i++ )
 				{
@@ -253,8 +255,8 @@ public class LevelGenerator : MonoBehaviour
 		// Each triangles[] element is an index to the vertices[] array
 		// So each element in triangles[] is really indicating a point on a triangle
 		// Every 3 points are the points for one triangle.
-		int index = trianglesIndex;
-		for ( int layer = prevInfo.index; layer < prevInfo.index + layerCount-1; layer++ )
+		int index = 0;
+		for ( int layer = 0; layer < layerCount-1; layer++ )
 		{
 			for ( int vert = 0; vert < vertsPerLayer-1; vert++ )
 			{
@@ -279,31 +281,116 @@ public class LevelGenerator : MonoBehaviour
 			triangles[index++] = ((layer+1)*vertsPerLayer) + vertsPerLayer-1;
 			triangles[index++] = ( layer   *vertsPerLayer) + vertsPerLayer-1;
 		}
-		trianglesIndex = index;
 		
 		// Spawn a cloud layer!
 		Instantiate(cloudLayer, layerCenter + Vector3.back * 10f, Quaternion.identity);
-		// return last layer info for next stage
-		layerInfo info = new layerInfo(prevInfo.index + layerCount, sin);
-		return info;
+		// return 
+		prevInfo = new layerInfo(prevInfo.index + layerCount, sin);
+		Mesh m = new Mesh();
+		m.vertices = verts;
+		m.uv = uv;
+		m.triangles = triangles;
+		return m;
 	}
 	
-	void CreateMesh()
+
+	Transform CreateMesh(StageProperties stage, Mesh mesh)
 	{
-		gameObject.AddComponent<MeshFilter>();
+		GameObject child = new GameObject(stage.name);
+		child.transform.parent = transform;
+		child.AddComponent<MeshFilter>();
+		Mesh childmesh = child.GetComponent<MeshFilter>().mesh;
 		// Assign our mesh data to the mesh
-		Mesh mesh = GetComponent<MeshFilter>().mesh;
-		mesh.vertices = verts;
-		mesh.uv = uv;
-		mesh.triangles = triangles;
-		mesh.RecalculateNormals();
+		childmesh.Clear();
+		childmesh.vertices = mesh.vertices;
+		childmesh.uv = mesh.uv;
+		childmesh.triangles = mesh.triangles;
+		childmesh.RecalculateNormals();
 		// Create a physics component for our new mesh (mesh ignores all collisions otherwise)
-		gameObject.AddComponent<MeshCollider>();
+		child.AddComponent<MeshCollider>();
 		// Render dat mesh 
-		gameObject.AddComponent<MeshRenderer>();
-		renderer.material = stages[0].materials[0];
-		renderer.castShadows = false;
-		renderer.receiveShadows = false;
+		child.AddComponent<MeshRenderer>();
+		child.renderer.material = stage.materials[0];
+		child.renderer.castShadows = false;
+		child.renderer.receiveShadows = false;
+		return child.transform;
 	}
 	
+	
+	Vector3[] GetGeneratedVertices()
+	{
+		// Extract vertices array from all generated meshes.
+		int vertexCount = 0;
+		Transform[] children = new Transform[stageParemeters.Length];
+		Vector3[][] stagevertices = new Vector3[stageParemeters.Length][];
+		Mesh mesh;
+		for ( int i = 0; i < stageParemeters.Length; i++)
+		{
+			children[i] = transform.FindChild(stageParemeters[i].name);
+			if ( children[i] != null )
+			{
+				mesh = children[i].GetComponent<MeshFilter>().mesh;
+				stagevertices[i] = mesh.vertices;
+				vertexCount += mesh.vertices.Length;
+			}
+		}
+		
+		Vector3[] verts = new Vector3[vertexCount];
+		vertexCount = 0;
+		for ( int i = 0; i < stageParemeters.Length; i++)
+		{
+			stagevertices[i].CopyTo(verts, vertexCount);
+			vertexCount += stagevertices[i].Length;
+		}
+		return verts;
+	}
+	
+	void PlaceHandholds()
+	{
+		Vector3[] verts = GetGeneratedVertices();
+		
+		// count the layers
+		
+		int[] stageStartLayer = new int[stageParemeters.Length];
+		stageStartLayer[0] = (int)(stageParemeters[0].height / layerHeight);
+		int totalLayerCount = stageStartLayer[0];
+		for ( int i = 1; i < stageParemeters.Length; i++ )
+		{
+			stageStartLayer[i] = (int)(stageParemeters[i].height / layerHeight) + stageStartLayer[i-1];
+			totalLayerCount += (int)(stageParemeters[i].height / layerHeight);
+		}
+		
+		// create the hold positions for layer 1
+		int[] holdvert = new int[8];
+		for ( int i = 0; i < holdvert.Length; i++)
+		{
+			holdvert[i] = Random.Range(0, vertsPerLayer);
+		}
+		
+		Transform hold;
+		Vector3 spawnPos;
+		int spawnIndex = 0;
+		int stageIndex = 0;
+		for ( int layer = 1; layer < totalLayerCount; layer++)
+		{
+			if ( layer > stageStartLayer[stageIndex] ) stageIndex++;
+			
+			for ( int vert = 0; vert < vertsPerLayer; vert++)
+			{
+				for ( int i = 0; i < holdvert.Length; i++)
+				{
+					if ( vert == holdvert[i] & Random.value < 0.75f)
+					{
+						spawnPos = verts[ (layer*vertsPerLayer) + vert];
+						spawnIndex = Random.Range(0, handHolds.Length);
+						//Quaternion holdRotation =  Quaternion.LookRotation(layerCenter - vertex, Vector3.up);
+						hold = Instantiate(handHolds[spawnIndex], spawnPos, Quaternion.identity) as Transform;
+						hold.parent = stages[stageIndex];
+						hold.renderer.material = stageParemeters[stageIndex].materials[0];
+						holdvert[i] += Random.Range(-2, 2);
+					}
+				}
+			}
+		}
+	}
 }
