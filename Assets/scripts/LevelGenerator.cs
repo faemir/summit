@@ -49,6 +49,7 @@ public class LevelGenerator : MonoBehaviour
 	public float vertVariation = 0.125f;
 	public float minimumRadius = 2f;
 	public StageProperties[] stageParemeters = new StageProperties[4];
+	public bool spawnClouds = true;
 	public bool debug = true;
 	
 	private int vertsPerLayer;
@@ -147,14 +148,6 @@ public class LevelGenerator : MonoBehaviour
 		}
 		// </sinusoid parameters>
 		
-		// <path nodes>
-		int[] nodes = new int[stage.numberOfRoutes];
-		for ( int i = 0; i < nodes.Length; i++)
-		{
-			nodes[i] = Random.Range(0, vertsPerLayer);
-		}
-		// </path nodes>
-		
 		// <hazards>
 		int[] hazardVerts = new int[stage.numberOfHazards];
 		for ( int i = 0; i < hazardVerts.Length; i++)
@@ -180,6 +173,9 @@ public class LevelGenerator : MonoBehaviour
 		for ( int layer = 0; layer < layerCount; layer++ )
 		{
 			// calculate next sinusoid value
+			// TODO:
+			// Turn these sinusoids into functions of world space height 
+			// rather than functions of layer number. 
 			for ( int i = 0; i < sinusoidCount; i++ )
 			{
 				sin[i] = Mathf.Abs(amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * (layer+prevInfo.index) + phas[i]) + off[i] - minimumRadius) + minimumRadius;
@@ -210,26 +206,7 @@ public class LevelGenerator : MonoBehaviour
 					radius += Random.Range(-1,1) * vertVariation;
 				// calculate vertex position from radius
 				Vector3 vertex = layerCenter + transform.forward * radius;
-				
-				/*
-				// place handholds
-				for (int i = 0; i < nodes.Length; i++ )
-				{
-					// skip every 3 to 8 holds
-					if ( layer % Random.Range(3,8) == 0 )
-					{
 
-					}
-					else if ( vert == nodes[i] )
-					{
-						int holdIndex = Random.Range(0, handHolds.Length);
-						Quaternion holdRotation =  Quaternion.LookRotation(layerCenter - vertex, Vector3.up);
-						obj = Instantiate(handHolds[holdIndex], vertex, holdRotation) as Transform;
-						obj.renderer.material = stage.materials[0];
-						nodes[i] += Random.Range(-1, 1);
-					}
-				}
-				*/
 				// place hazards
 				for ( int i = 0; i < hazardVerts.Length; i++ )
 				{
@@ -246,6 +223,7 @@ public class LevelGenerator : MonoBehaviour
 				uv[ layer*vertsPerLayer + vert] = new Vector2(vert, layer);
 				transform.Rotate(Vector3.up, innerAngle);
 			}
+			uv[ layer*vertsPerLayer + vertsPerLayer-1] = new Vector2(vertsPerLayer, layer);
 			layerCenter += Vector3.up * layerHeight;
 		}
 		layerCenter -= Vector3.up * layerHeight;
@@ -256,6 +234,7 @@ public class LevelGenerator : MonoBehaviour
 		// So each element in triangles[] is really indicating a point on a triangle
 		// Every 3 points are the points for one triangle.
 		int index = 0;
+		
 		for ( int layer = 0; layer < layerCount-1; layer++ )
 		{
 			for ( int vert = 0; vert < vertsPerLayer-1; vert++ )
@@ -270,20 +249,23 @@ public class LevelGenerator : MonoBehaviour
 				triangles[index++] = ( layer   *vertsPerLayer) + vert + 1;
 				triangles[index++] = ((layer+1)*vertsPerLayer) + vert + 1;
 			}
+
 			// These two triangles join the ends of each layer
 			// This is best explained by removing the code for them to see what happens...
 			// (hint: look all around the mesh, easier to spot with less sides)
 			triangles[index++] = ( layer   *vertsPerLayer);
 			triangles[index++] = ((layer+1)*vertsPerLayer);
-			triangles[index++] = ( layer   *vertsPerLayer) + vertsPerLayer-1;
+			triangles[index++] = ((layer+1)*vertsPerLayer) + vertsPerLayer-1;
 			
-			triangles[index++] = ((layer+1)*vertsPerLayer);
+			triangles[index++] = ( layer   *vertsPerLayer);
 			triangles[index++] = ((layer+1)*vertsPerLayer) + vertsPerLayer-1;
 			triangles[index++] = ( layer   *vertsPerLayer) + vertsPerLayer-1;
 		}
+
 		
 		// Spawn a cloud layer!
-		Instantiate(cloudLayer, layerCenter + Vector3.back * 10f, Quaternion.identity);
+		if (spawnClouds)
+			Instantiate(cloudLayer, layerCenter + Vector3.back * 10f, Quaternion.identity);
 		// return 
 		prevInfo = new layerInfo(prevInfo.index + layerCount, sin);
 		Mesh m = new Mesh();
@@ -298,6 +280,7 @@ public class LevelGenerator : MonoBehaviour
 	{
 		GameObject child = new GameObject(stage.name);
 		child.transform.parent = transform;
+		child.tag = "wall";
 		child.AddComponent<MeshFilter>();
 		Mesh childmesh = child.GetComponent<MeshFilter>().mesh;
 		// Assign our mesh data to the mesh
@@ -311,15 +294,43 @@ public class LevelGenerator : MonoBehaviour
 		// Render dat mesh 
 		child.AddComponent<MeshRenderer>();
 		child.renderer.material = stage.materials[0];
-		child.renderer.castShadows = false;
-		child.renderer.receiveShadows = false;
+		child.renderer.castShadows = true;
+		child.renderer.receiveShadows = true;
 		return child.transform;
 	}
 	
+	// Extract normals array from all generated meshes.
+	Vector3[] GetGeneratedNormals()
+	{
+		int vertexCount = 0;
+		Transform[] children = new Transform[stageParemeters.Length];
+		Vector3[][] stagenormals = new Vector3[stageParemeters.Length][];
+		Mesh mesh;
+		
+		for ( int i = 0; i < stageParemeters.Length; i++)
+		{
+			children[i] = transform.FindChild(stageParemeters[i].name);
+			if ( children[i] != null )
+			{
+				mesh = children[i].GetComponent<MeshFilter>().mesh;
+				stagenormals[i] = mesh.normals;
+				vertexCount += mesh.normals.Length;
+			}
+		}
+		
+		Vector3[] normals = new Vector3[vertexCount];
+		vertexCount = 0;
+		for (int i = 0; i < stageParemeters.Length; i++)
+		{
+			stagenormals[i].CopyTo(normals, vertexCount);
+			vertexCount += stagenormals[i].Length;
+		}
+		return normals;
+	}
 	
+	// Extract vertices array from all generated meshes.
 	Vector3[] GetGeneratedVertices()
 	{
-		// Extract vertices array from all generated meshes.
 		int vertexCount = 0;
 		Transform[] children = new Transform[stageParemeters.Length];
 		Vector3[][] stagevertices = new Vector3[stageParemeters.Length][];
@@ -348,27 +359,33 @@ public class LevelGenerator : MonoBehaviour
 	void PlaceHandholds()
 	{
 		Vector3[] verts = GetGeneratedVertices();
-		
+		Vector3[] normals = GetGeneratedNormals();
 		// count the layers
 		
 		int[] stageStartLayer = new int[stageParemeters.Length];
 		stageStartLayer[0] = (int)(stageParemeters[0].height / layerHeight);
 		int totalLayerCount = stageStartLayer[0];
+		int maxRoutes = stageParemeters[0].numberOfRoutes;
 		for ( int i = 1; i < stageParemeters.Length; i++ )
 		{
 			stageStartLayer[i] = (int)(stageParemeters[i].height / layerHeight) + stageStartLayer[i-1];
 			totalLayerCount += (int)(stageParemeters[i].height / layerHeight);
+			maxRoutes = Mathf.Max(maxRoutes, stageParemeters[i].numberOfRoutes);
 		}
 		
-		// create the hold positions for layer 1
-		int[] holdvert = new int[8];
-		for ( int i = 0; i < holdvert.Length; i++)
+		// initial hold positions
+		int[] holdvert = new int[maxRoutes];
+		int gap = 0;
+		holdvert[0] = Random.Range(0, vertsPerLayer);
+		for ( int i = 1; i < holdvert.Length; i++)
 		{
-			holdvert[i] = Random.Range(0, vertsPerLayer);
+			gap = Mathf.RoundToInt(vertsPerLayer/holdvert.Length);
+			holdvert[i] = holdvert[i-1] + Random.Range(gap/2, gap);
 		}
 		
 		Transform hold;
 		Vector3 spawnPos;
+		Quaternion spawnRot;
 		int spawnIndex = 0;
 		int stageIndex = 0;
 		for ( int layer = 1; layer < totalLayerCount; layer++)
@@ -379,15 +396,18 @@ public class LevelGenerator : MonoBehaviour
 			{
 				for ( int i = 0; i < holdvert.Length; i++)
 				{
-					if ( vert == holdvert[i] & Random.value < 0.75f)
+					if ( vert == holdvert[i] && Random.value < 0.75f)
 					{
 						spawnPos = verts[ (layer*vertsPerLayer) + vert];
 						spawnIndex = Random.Range(0, handHolds.Length);
-						//Quaternion holdRotation =  Quaternion.LookRotation(layerCenter - vertex, Vector3.up);
-						hold = Instantiate(handHolds[spawnIndex], spawnPos, Quaternion.identity) as Transform;
+						spawnRot = Quaternion.LookRotation(normals[ (layer*vertsPerLayer) + vert]);
+						hold = Instantiate(handHolds[spawnIndex], spawnPos, spawnRot) as Transform;
 						hold.parent = stages[stageIndex];
 						hold.renderer.material = stageParemeters[stageIndex].materials[0];
 						holdvert[i] += Random.Range(-2, 2);
+						if (holdvert[i] < 0 ) holdvert[i] += vertsPerLayer;
+						if (holdvert[i] >= vertsPerLayer ) holdvert[i] -= vertsPerLayer;
+						//Debug.Log("Spawned hold: " + layer + ", " + vert + ", " + spawnPos);
 					}
 				}
 			}
