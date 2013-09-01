@@ -21,7 +21,8 @@ using System.Collections;
 
 public class LevelGenerator : MonoBehaviour 
 {
-	// Unique data for each stage (serializable)
+	// Unique data for each stage
+	// Serializable classes can be viewed and edited in the Unity Inspector
 	[System.Serializable]
 	public class StageProperties
 	{
@@ -41,27 +42,39 @@ public class LevelGenerator : MonoBehaviour
 		public float minSinPhs = 0f;
 	}
 	
+	// Generated mesh LevelOfDetail settings
 	public enum LevelMeshLOD {High, Medium, Low};
-	
 	public LevelMeshLOD MeshDetail = LevelMeshLOD.Medium;
-	public float vertVariation = 0.125f;
-	public float minimumRadius = 2f;
+	
+	// Tweaks for the generated mesh
+	public float vertVariation = 0.125f;		// amount of noise added to each vertex
+	public float minimumRadius = 2f;			// smallest permitted distance to y axis (Vector3.up)
+	
+	// Stuff to spawn in the level
 	public bool spawnClouds = true;
-	public Transform cloudLayer;
-	public Transform[] handHolds;
+	public Transform cloudLayer;				// This is the particle system prefab to Instantiate
+	public Transform[] handHolds;				// A list of handhold prefabs
+	
+	// Unique data for the mesh in each stage (see class declaration above)
 	public StageProperties[] stageParemeters = new StageProperties[4];
+	
+	// debugMode just toggles on/off some Debug.DrawLine stuff
 	public bool debugMode = false;
 	
-	private Transform[] stages;
-	private float layerHeight;
-	private int vertsPerLayer;
-	private Vector3 layerCenter = Vector3.zero;
-	private int vertsBetweenSinusoids;
+	private Transform[] stages;					// A list of the child objects containing each stage
+	private float layerHeight; 					// The vertical gap between vertices in each mesh
+	private int vertsPerLayer;					// The number of vertices that share the same height
+	private Vector3 layerCenter = Vector3.zero; // A point in the center of the level used for placing vertices
+	private int vertsBetweenSinusoids;			// The number of vertices between a 'sinusoid vertex'
 	
+	// Some vertices use a Sin() function to calculate their position (sinusoids).
+	// The rest use a linear interpolation between two adjacent sinusoids to calculate their position.
+	// If unsure, please refer to external documentation on what a sinusoid is in this context.
 	private const int sinusoidCount = 8;
 	
-
-	
+	// Each stage mesh is generated separately. To ensure these meshes line up at the seams
+	// it is necessary to pass relevant information between stage generation. The relevant
+	// data is passed using the following struct
 	private struct layerInfo
 	{
 		public int index;
@@ -101,7 +114,6 @@ public class LevelGenerator : MonoBehaviour
 			break;
 		}
 		
-		// Initialise
 		vertsPerLayer = vertsBetweenSinusoids * sinusoidCount;
 		stages = new Transform[stageParemeters.Length];
 		
