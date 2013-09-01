@@ -1,17 +1,24 @@
 fileFormatVersion: 2
-guid: 5fc5c3a76c1dc7d4caeb11aa9466de7c
+guid: 8affde7552acaed4aa6d40947854d2e7
 ModelImporter:
   serializedVersion: 15
   fileIDToRecycleName:
-    100000: //RootNode
-    400000: //RootNode
-    2300000: //RootNode
-    3300000: //RootNode
-    4300000: Cube
+    100000: Platform
+    100002: Spike
+    100004: //RootNode
+    400000: Platform
+    400002: Spike
+    400004: //RootNode
+    2300000: Platform
+    2300002: Spike
+    3300000: Platform
+    3300002: Spike
+    4300000: Spike
+    4300002: Platform
     7400000: Default Take
     9500000: //RootNode
   materials:
-    importMaterials: 0
+    importMaterials: 1
     materialName: 0
     materialSearch: 1
   animations:
@@ -44,7 +51,7 @@ ModelImporter:
     splitTangentsAcrossUV: 1
     normalImportMode: 0
     tangentImportMode: 1
-  importAnimation: 0
+  importAnimation: 1
   copyAvatar: 0
   humanDescription:
     human: []

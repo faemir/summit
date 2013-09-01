@@ -25,37 +25,42 @@ public class LevelGenerator : MonoBehaviour
 	[System.Serializable]
 	public class StageProperties
 	{
-		public string name;
+		public string name = "Default Stage";
 		public Material[] materials;
 		public Transform[] hazards;
-		public int numberOfHazards;
-		public int numberOfRoutes;
-		public float height;
-		public float maxSinAmp;
-		public float minSinAmp;
-		public float maxSinOff;
-		public float minSinOff;
-		public float maxSinFrq;
-		public float minSinFrq;
-		public float maxSinPhs;
-		public float minSinPhs;
+		public int numberOfHazards = 0;
+		public int numberOfRoutes = 0;
+		public float height = 10f;
+		public float maxSinAmp = 2f;
+		public float minSinAmp = 1f;
+		public float maxSinOff = 0f;
+		public float minSinOff = 0f;
+		public float maxSinFrq = 0.05f;
+		public float minSinFrq = 0.01f;
+		public float maxSinPhs = 4f;
+		public float minSinPhs = 0f;
 	}
 	
-	public Transform[] handHolds;
-	public Transform cloudLayer;
-	public int verticesBetweenSinusoids = 16;			
-	public int sinusoidCount = 4;
-	public float layerHeight = 1f;
+	public enum LevelMeshLOD {High, Medium, Low};
+	
+	public LevelMeshLOD MeshDetail = LevelMeshLOD.Medium;
 	public float vertVariation = 0.125f;
 	public float minimumRadius = 2f;
-	public StageProperties[] stageParemeters = new StageProperties[4];
 	public bool spawnClouds = true;
-	public bool debug = true;
+	public Transform cloudLayer;
+	public Transform[] handHolds;
+	public StageProperties[] stageParemeters = new StageProperties[4];
+	public bool debugMode = false;
 	
-	private int vertsPerLayer;
-	private float innerAngle = 0f;
-	private Vector3 layerCenter = Vector3.zero;
 	private Transform[] stages;
+	private float layerHeight;
+	private int vertsPerLayer;
+	private Vector3 layerCenter = Vector3.zero;
+	private int vertsBetweenSinusoids;
+	
+	private const int sinusoidCount = 8;
+	
+
 	
 	private struct layerInfo
 	{
@@ -68,17 +73,36 @@ public class LevelGenerator : MonoBehaviour
 		}
 	}
 	
-	void Start () 
+	IEnumerator Start () 
 	{
-		// Start generation
 		Generate();
+		yield return new WaitForFixedUpdate();
+		int verticalRoutes = 6;
+		int crossRoutes = 4;
+		SpawnRoutes(verticalRoutes, crossRoutes);
 	}
 	
 	void Generate()
 	{
-		// Initialize
-		vertsPerLayer = verticesBetweenSinusoids * sinusoidCount;
-		innerAngle = 360f / (float)vertsPerLayer;
+		// Initialise mesh detail parameters
+		switch ( MeshDetail )
+		{
+		case LevelMeshLOD.High:
+			vertsBetweenSinusoids = 8;
+			layerHeight = 0.5f;
+			break;
+		case LevelMeshLOD.Medium:
+			vertsBetweenSinusoids = 6;
+			layerHeight = 0.75f;
+			break;
+		case LevelMeshLOD.Low:
+			vertsBetweenSinusoids = 4;
+			layerHeight = 1f;
+			break;
+		}
+		
+		// Initialise
+		vertsPerLayer = vertsBetweenSinusoids * sinusoidCount;
 		stages = new Transform[stageParemeters.Length];
 		
 		// Log mesh info
@@ -86,13 +110,13 @@ public class LevelGenerator : MonoBehaviour
 		int trianglecount = 0;
 		for ( int i = 0; i < stageParemeters.Length; i++ )
 		{
-			layerCount += (int)(stageParemeters[i].height / layerHeight);
+			layerCount += Mathf.CeilToInt((stageParemeters[i].height + layerHeight) / layerHeight);
 			trianglecount += (layerCount * vertsPerLayer * 6);
 		}
 		Debug.Log ("[MeshGen] Layer count: " + layerCount);
 		Debug.Log ("[MeshGen] Triangle count: " + trianglecount);
 		
-		// initialize layerInfo struct
+		// Initialise layerInfo struct
 		layerInfo info;
 		info.index = 0;
 		info.sinValues = new float[sinusoidCount];
@@ -100,6 +124,7 @@ public class LevelGenerator : MonoBehaviour
 		{
 			info.sinValues[i] = Random.Range(stageParemeters[0].minSinOff, stageParemeters[0].maxSinOff);
 		}
+		
 		// Generate meshes for each stage
 		Mesh mesh;
 		for ( int i = 0; i < stageParemeters.Length; i++)
@@ -107,16 +132,16 @@ public class LevelGenerator : MonoBehaviour
 			mesh = GenerateMeshData(stageParemeters[i], ref info);
 			stages[i] = CreateMesh(stageParemeters[i], mesh);
 		}
-		Debug.DrawLine(Vector3.zero, layerCenter, Color.white, Mathf.Infinity);
+		if (debugMode)
+			Debug.DrawLine(Vector3.zero, layerCenter, Color.white, Mathf.Infinity);
 		
-		PlaceHandholds();
 	}
 	
 	Mesh GenerateMeshData(StageProperties stage, ref layerInfo prevInfo)
 	{
-		Transform obj;
-		int layerCount = (int)(stage.height / layerHeight);
+		int layerCount = Mathf.CeilToInt((stage.height + layerHeight) / layerHeight);
 		int vertCount = layerCount * vertsPerLayer;
+		float innerAngle = 360f / (float)vertsPerLayer;
 		
 		Vector3[] verts = new Vector3[vertCount];
 		Vector2[] uv = new Vector2[vertCount];
@@ -161,7 +186,8 @@ public class LevelGenerator : MonoBehaviour
 		float[] sin = new float[sinusoidCount];
 		for ( int i = 0; i < sinusoidCount; i++ )
 		{
-			sin[i] = amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * prevInfo.index + phas[i]) + off[i];
+			float height = (float)(prevInfo.index) * layerHeight;
+			sin[i] = amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * height + phas[i]) + off[i];
 			off[i] += prevInfo.sinValues[i] - sin[i];
 		}
 		// </offset corrections>
@@ -172,20 +198,18 @@ public class LevelGenerator : MonoBehaviour
 		float sinvert_next; float sinvert_prev = 0f;
 		for ( int layer = 0; layer < layerCount; layer++ )
 		{
-			// calculate next sinusoid value
-			// TODO:
-			// Turn these sinusoids into functions of world space height 
-			// rather than functions of layer number. 
+			// calculate next sinusoid value 
+			float height = (float)(layer + prevInfo.index) * layerHeight;
 			for ( int i = 0; i < sinusoidCount; i++ )
 			{
-				sin[i] = Mathf.Abs(amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * (layer+prevInfo.index) + phas[i]) + off[i] - minimumRadius) + minimumRadius;
+				sin[i] = Mathf.Abs(amp[i] * Mathf.Sin(2f * Mathf.PI  * freq[i] * height + phas[i]) + off[i] - minimumRadius) + minimumRadius;
 			}
 			
 			int sinIndex = 0;
 			for ( int vert = 0; vert < vertsPerLayer; vert++ )
 			{
 				// insert sinusoid values as radii
-				if ( vert % verticesBetweenSinusoids == 0 ) 
+				if ( vert % vertsBetweenSinusoids == 0 ) 
 				{
 					radius = sin[sinIndex++];
 					sinvert_prev = vert;
@@ -198,7 +222,7 @@ public class LevelGenerator : MonoBehaviour
 					else
 						sinrad_next = sin[0];
 					sinrad_prev = sin[sinIndex - 1];
-					sinvert_next = vert + verticesBetweenSinusoids - (vert % verticesBetweenSinusoids);
+					sinvert_next = vert + vertsBetweenSinusoids - (vert % vertsBetweenSinusoids);
 					radius = sinrad_prev + (vert - sinvert_prev) * (sinrad_next - sinrad_prev) / (sinvert_next - sinvert_prev);
 				}
 				// make some noise 
@@ -299,6 +323,85 @@ public class LevelGenerator : MonoBehaviour
 		return child.transform;
 	}
 	
+	void SpawnRoutes(int lockedRouteCount, int freeMovingRouteCount)
+	{
+		for (int i = 0; i < lockedRouteCount; i++)
+		{
+			float angle = (float)i * 360f/(float)lockedRouteCount;
+			SpawnSingleRoute(RouteStyle.LockedToStartAngle, angle, -10f, 10f);
+		}
+		for (int i = 0; i < freeMovingRouteCount; i++)
+		{
+			float angle = (float)i * 360f/(float)freeMovingRouteCount;
+			SpawnSingleRoute(RouteStyle.FreeMoving, angle, 0f, 10f);
+		}
+	}
+	
+	private enum RouteStyle {LockedToStartAngle, FreeMoving};
+	
+	void SpawnSingleRoute(RouteStyle style, float startAngle, float minDeltaAngle, float maxDeltaAngle)
+	{
+		Transform hold;
+		
+		float maxHeight = 0f;
+		for (int i = 0; i < stageParemeters.Length; i++ )
+		{
+			maxHeight += stageParemeters[i].height;
+		}
+		
+		float height = 0f;
+		float nextStageHeight = stageParemeters[0].height;
+		
+		int stageIndex = 0;
+		int holdIndex = 0;
+		float noiseyAngle = startAngle;
+		while (height < maxHeight) 
+		{
+			if (style == RouteStyle.LockedToStartAngle)
+				noiseyAngle = startAngle + Random.Range(minDeltaAngle, maxDeltaAngle);
+			if (style == RouteStyle.FreeMoving)
+				noiseyAngle += Random.Range(minDeltaAngle, maxDeltaAngle);
+			
+			float minDeltaHeight = Mathf.Lerp(0.1f, 0.5f, height/maxHeight);
+			float maxDeltaHeight = Mathf.Lerp(1f, 2f, height/maxHeight);
+			height += Random.Range(minDeltaHeight, maxDeltaHeight);
+			if ( height > nextStageHeight ) 
+			{
+				stageIndex++;
+				if ( stageIndex >= stageParemeters.Length ) stageIndex = stageParemeters.Length - 1;
+				nextStageHeight+= stageParemeters[stageIndex].height;
+			}
+			
+			Vector3 castDestination = Vector3.up * height;
+			Vector3 castOrigin = new Vector3();
+			castOrigin.x = Mathf.Sin(Mathf.Deg2Rad * noiseyAngle) * 50f;
+			castOrigin.z = Mathf.Cos(Mathf.Deg2Rad * noiseyAngle) * 50f;
+			castOrigin.y = height;
+			
+			Ray cast = new Ray(castOrigin, castDestination - castOrigin);
+			RaycastHit hit;
+			
+			Color debugColor = Color.red;
+			
+			if (Physics.Raycast(cast, out hit))
+			{
+				if (hit.transform.tag == "wall")
+				{
+					debugColor = Color.green;
+					holdIndex = Random.Range(0, handHolds.Length);
+					Quaternion spawnRotation = Quaternion.LookRotation(hit.normal);
+					hold = Instantiate(handHolds[holdIndex], hit.point, spawnRotation) as Transform;
+					hold.parent = stages[stageIndex];
+					hold.renderer.material = stageParemeters[stageIndex].materials[0];
+				}
+				if (debugMode)
+					Debug.DrawRay(hit.point, hit.normal, debugColor, Mathf.Infinity);
+			}
+		}
+		
+	}
+	
+	
 	// Extract normals array from all generated meshes.
 	Vector3[] GetGeneratedNormals()
 	{
@@ -356,7 +459,8 @@ public class LevelGenerator : MonoBehaviour
 		return verts;
 	}
 	
-	void PlaceHandholds()
+	
+	void SpawnHandholdsTheOldWay()
 	{
 		Vector3[] verts = GetGeneratedVertices();
 		Vector3[] normals = GetGeneratedNormals();
@@ -407,10 +511,27 @@ public class LevelGenerator : MonoBehaviour
 						holdvert[i] += Random.Range(-2, 2);
 						if (holdvert[i] < 0 ) holdvert[i] += vertsPerLayer;
 						if (holdvert[i] >= vertsPerLayer ) holdvert[i] -= vertsPerLayer;
-						//Debug.Log("Spawned hold: " + layer + ", " + vert + ", " + spawnPos);
 					}
 				}
 			}
 		}
+	}
+	
+	void SpawnHazards()
+	{
+		Vector3[] verts = GetGeneratedVertices();
+		Vector3[] normals = GetGeneratedNormals();
+		
+		int[] stageStartLayer = new int[stageParemeters.Length];
+		stageStartLayer[0] = (int)(stageParemeters[0].height / layerHeight);
+		int totalLayerCount = stageStartLayer[0];
+		int maxHazards = stageParemeters[0].hazards.Length;
+		for ( int i = 1; i < stageParemeters.Length; i++ )
+		{
+			stageStartLayer[i] = (int)(stageParemeters[i].height / layerHeight) + stageStartLayer[i-1];
+			totalLayerCount += (int)(stageParemeters[i].height / layerHeight);
+			maxHazards = Mathf.Max(maxHazards, stageParemeters[i].hazards.Length);
+		}
+		
 	}
 }
