@@ -27,8 +27,8 @@ public class LevelGenerator : MonoBehaviour
 	public class StageProperties
 	{
 		public string name = "Default Stage";
-		public Material[] materials;
-		public Transform[] hazards;
+		public Material[] materials = new Material[1];
+		public Hazard[] hazards = new Hazard[1];
 		public int numberOfHazards = 0;
 		public int numberOfRoutes = 0;
 		public float height = 10f;
@@ -42,6 +42,8 @@ public class LevelGenerator : MonoBehaviour
 		public float minSinPhs = 0f;
 	}
 	
+
+	
 	// Generated mesh LevelOfDetail settings
 	public enum LevelMeshLOD {High, Medium, Low};
 	public LevelMeshLOD MeshDetail = LevelMeshLOD.Medium;
@@ -54,6 +56,9 @@ public class LevelGenerator : MonoBehaviour
 	public bool spawnClouds = true;
 	public Transform cloudLayer;				// This is the particle system prefab to Instantiate
 	public Transform[] handHolds;				// A list of handhold prefabs
+	
+	// Data for spawning handholds for climbing routes
+	public ClimbingRouteParameters[] Routes = new ClimbingRouteParameters[2];
 	
 	// Unique data for the mesh in each stage (see class declaration above)
 	public StageProperties[] stageParemeters = new StageProperties[4];
@@ -90,9 +95,10 @@ public class LevelGenerator : MonoBehaviour
 	{
 		Generate();
 		yield return new WaitForFixedUpdate();
-		int verticalRoutes = 6;
-		int crossRoutes = 4;
-		SpawnRoutes(verticalRoutes, crossRoutes);
+		SpawnHazards();
+		yield return new WaitForFixedUpdate();
+		SpawnRoutes();
+		
 	}
 	
 	void Generate()
@@ -162,37 +168,20 @@ public class LevelGenerator : MonoBehaviour
 		// <sinusoid parameters>
 		float[] freq = new float[sinusoidCount];
 		for ( int i = 0; i < sinusoidCount; i++)
-		{
 			freq[i] = Random.Range(stage.minSinFrq, stage.maxSinFrq);
-		}
 		
 		float[] amp = new float[sinusoidCount];
 		for ( int i = 0; i < sinusoidCount; i++)
-		{
 			amp[i] = Random.Range(stage.minSinAmp, stage.maxSinAmp);
-		}
 		
 		float[] off = new float[sinusoidCount];
 		for ( int i = 0; i < sinusoidCount; i++)
-		{
 			off[i] = Random.Range(stage.minSinOff, stage.maxSinOff);
-		}
 		
 		float[] phas = new float[sinusoidCount];
 		for ( int i = 0; i < sinusoidCount; i++)
-		{
 			phas[i] = Random.Range(stage.minSinPhs, stage.maxSinPhs);
-		}
 		// </sinusoid parameters>
-		
-		// <hazards>
-		int[] hazardVerts = new int[stage.numberOfHazards];
-		for ( int i = 0; i < hazardVerts.Length; i++)
-		{
-			hazardVerts[i] = Random.Range(vertsPerLayer, layerCount*vertsPerLayer);
-		}
-		// </hazards>
-		
 		
 		// <offset corrections>
 		float[] sin = new float[sinusoidCount];
@@ -242,18 +231,7 @@ public class LevelGenerator : MonoBehaviour
 					radius += Random.Range(-1,1) * vertVariation;
 				// calculate vertex position from radius
 				Vector3 vertex = layerCenter + transform.forward * radius;
-
-				// place hazards
-				for ( int i = 0; i < hazardVerts.Length; i++ )
-				{
-					if ( layer*vertsPerLayer + vert == hazardVerts[i] )
-					{
-						int hazardIndex = Random.Range(0, stage.hazards.Length);
-						Quaternion hazardRotation = Quaternion.LookRotation(vertex - layerCenter, Vector3.up);
-						Instantiate(stage.hazards[hazardIndex], vertex * 0.9f, hazardRotation);
-					}
-				}
-
+				
 				// store vertex in verts[]
 				verts[ layer*vertsPerLayer + vert] = vertex;
 				uv[ layer*vertsPerLayer + vert] = new Vector2(vert, layer);
@@ -311,7 +289,6 @@ public class LevelGenerator : MonoBehaviour
 		return m;
 	}
 	
-
 	Transform CreateMesh(StageProperties stage, Mesh mesh)
 	{
 		GameObject child = new GameObject(stage.name);
@@ -335,21 +312,60 @@ public class LevelGenerator : MonoBehaviour
 		return child.transform;
 	}
 	
-	void SpawnRoutes(int lockedRouteCount, int freeMovingRouteCount)
+	[System.Serializable]
+	public class ClimbingRouteParameters
 	{
-		for (int i = 0; i < lockedRouteCount; i++)
+		public string name = "Default Route";
+		public int instancesOfThisRoute = 4;
+		public float minAngleVariance = -10f;
+		public float maxAngleVariance = 10f;
+		public RouteStyle style = RouteStyle.LockedToStartAngle;
+	}
+	
+	void SpawnRoutes()
+	{
+		int numberOfRoutes = 0;
+		for (int i = 0; i < Routes.Length; i++) numberOfRoutes += Routes[i].instancesOfThisRoute;
+		
+		int[] shuffledRoutes = new int[numberOfRoutes];
+		
+		for (int i = 0; i < numberOfRoutes; i++)
 		{
-			float angle = (float)i * 360f/(float)lockedRouteCount;
-			SpawnSingleRoute(RouteStyle.LockedToStartAngle, angle, -10f, 10f);
+			shuffledRoutes[i] = i+1;
 		}
-		for (int i = 0; i < freeMovingRouteCount; i++)
+		
+		for (int i = 0; i < numberOfRoutes; i++)
 		{
-			float angle = (float)i * 360f/(float)freeMovingRouteCount;
-			SpawnSingleRoute(RouteStyle.FreeMoving, angle, 0f, 10f);
+			int roll = shuffledRoutes[Random.Range(1, numberOfRoutes - i)];
+			for (int u = 0; u < numberOfRoutes-i-1; u++)
+			{
+				if (roll == shuffledRoutes[u])
+				{
+					shuffledRoutes[u] = shuffledRoutes[shuffledRoutes.Length-i-1];
+					shuffledRoutes[shuffledRoutes.Length-i-1] = roll;
+					break;
+				}
+			}
+		}
+		
+		float[] startAngles = new float[numberOfRoutes];
+		
+		for (int i = 0; i < numberOfRoutes; i++)
+		{
+			startAngles[i] = shuffledRoutes[i]*360f / numberOfRoutes;
+		}
+		
+		int routeIndex = 0;
+		for (int i = 0; i < Routes.Length; i++)
+		{
+			for (int u = 0; u  < Routes[i].instancesOfThisRoute; u++)
+			{
+				SpawnSingleRoute(Routes[i].style, startAngles[routeIndex++], Routes[i].minAngleVariance, Routes[i].maxAngleVariance);
+			}
 		}
 	}
 	
-	private enum RouteStyle {LockedToStartAngle, FreeMoving};
+	public enum RouteStyle {LockedToStartAngle, FreeMoving};
 	
 	void SpawnSingleRoute(RouteStyle style, float startAngle, float minDeltaAngle, float maxDeltaAngle)
 	{
@@ -375,7 +391,7 @@ public class LevelGenerator : MonoBehaviour
 				noiseyAngle += Random.Range(minDeltaAngle, maxDeltaAngle);
 			
 			float minDeltaHeight = Mathf.Lerp(0.1f, 0.5f, height/maxHeight);
-			float maxDeltaHeight = Mathf.Lerp(1f, 2f, height/maxHeight);
+			float maxDeltaHeight = Mathf.Lerp(0.8f, 2f, height/maxHeight);
 			height += Random.Range(minDeltaHeight, maxDeltaHeight);
 			if ( height > nextStageHeight ) 
 			{
@@ -387,8 +403,9 @@ public class LevelGenerator : MonoBehaviour
 			Vector3 castDestination = Vector3.up * height;
 			Vector3 castOrigin = new Vector3();
 			castOrigin.x = Mathf.Sin(Mathf.Deg2Rad * noiseyAngle) * 50f;
-			castOrigin.z = Mathf.Cos(Mathf.Deg2Rad * noiseyAngle) * 50f;
 			castOrigin.y = height;
+			castOrigin.z = Mathf.Cos(Mathf.Deg2Rad * noiseyAngle) * 50f;
+			
 			
 			Ray cast = new Ray(castOrigin, castDestination - castOrigin);
 			RaycastHit hit;
@@ -529,21 +546,63 @@ public class LevelGenerator : MonoBehaviour
 		}
 	}
 	
+	[System.Serializable]
+	public class Hazard
+	{
+		public string name = "Default Hazard";
+		public Transform hazardPrefab;
+		public int numberOfInstances = 1;
+	}
+	
 	void SpawnHazards()
 	{
-		Vector3[] verts = GetGeneratedVertices();
-		Vector3[] normals = GetGeneratedNormals();
-		
-		int[] stageStartLayer = new int[stageParemeters.Length];
-		stageStartLayer[0] = (int)(stageParemeters[0].height / layerHeight);
-		int totalLayerCount = stageStartLayer[0];
-		int maxHazards = stageParemeters[0].hazards.Length;
-		for ( int i = 1; i < stageParemeters.Length; i++ )
+		int hazardCount = 0;
+		for ( int i = 0; i < stageParemeters.Length; i++)
 		{
-			stageStartLayer[i] = (int)(stageParemeters[i].height / layerHeight) + stageStartLayer[i-1];
-			totalLayerCount += (int)(stageParemeters[i].height / layerHeight);
-			maxHazards = Mathf.Max(maxHazards, stageParemeters[i].hazards.Length);
+			float minHeight = 0f;
+			float maxHeight = 0f;
+			for ( int h = 0; h < stageParemeters[i].hazards.Length; h++)
+			{
+				minHeight = maxHeight;
+				maxHeight += stageParemeters[i].height;
+				int numberOfInstances = stageParemeters[i].hazards[h].numberOfInstances;
+				for (int instance = 0; instance < numberOfInstances; instance++)
+				{
+					float angle = instance * 360f / numberOfInstances;
+					angle += Random.Range(-30f, 30f);
+					float height = Random.Range(minHeight, maxHeight);
+					if ( SpawnSingleHazard(stageParemeters[i].hazards[h].hazardPrefab, angle, height, i) )
+						hazardCount++;
+				}
+			}
 		}
-		
+		Debug.Log ("Hazards Spawned: " + hazardCount);
+	}
+	
+	bool SpawnSingleHazard(Transform hazardPrefab, float angle, float height, int stage)
+	{
+		bool spawned = false;
+		Vector3 castDestination = Vector3.up * height;
+		Vector3 castOrigin = new Vector3();
+		castOrigin.x = Mathf.Sin(Mathf.Deg2Rad * angle) * 50f;
+		castOrigin.y = height;
+		castOrigin.z = Mathf.Cos(Mathf.Deg2Rad * angle) * 50f;
+		Ray cast = new Ray(castOrigin, castDestination - castOrigin);
+		RaycastHit hit;
+		Color debugColor = Color.red;
+		if (Physics.Raycast(cast, out hit))
+		{
+			if (hit.transform.tag == "wall")
+			{
+				debugColor = Color.magenta;
+				Quaternion spawnRotation = Quaternion.LookRotation(hit.normal);
+				hazardPrefab = Instantiate(hazardPrefab, hit.point, spawnRotation) as Transform;
+				hazardPrefab.parent = stages[stage];
+				spawned = true;
+			}
+			if (debugMode)
+				Debug.DrawRay(hit.point, hit.normal, debugColor, Mathf.Infinity);
+		}
+		return spawned;
 	}
 }
