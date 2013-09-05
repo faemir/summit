@@ -42,8 +42,6 @@ public class LevelGenerator : MonoBehaviour
 		public float minSinPhs = 0f;
 	}
 	
-
-	
 	// Generated mesh LevelOfDetail settings
 	public enum LevelMeshLOD {High, Medium, Low};
 	public LevelMeshLOD MeshDetail = LevelMeshLOD.Medium;
@@ -91,17 +89,21 @@ public class LevelGenerator : MonoBehaviour
 		}
 	}
 	
-	IEnumerator Start () 
+	void Start () 
 	{
-		Generate();
-		yield return new WaitForFixedUpdate();
-		SpawnHazards();
-		yield return new WaitForFixedUpdate();
-		SpawnRoutes();
-		
+		StartCoroutine ("Generate");
 	}
 	
-	void Generate()
+	IEnumerator Generate()
+	{
+		StartCoroutine("GenerateMesh");
+		yield return new WaitForSeconds(0.5f);
+		SpawnHazards();
+		yield return new WaitForSeconds(0.5f);
+		SpawnRoutes();
+	}
+	
+	IEnumerator GenerateMesh()
 	{
 		// Initialise mesh detail parameters
 		switch ( MeshDetail )
@@ -149,6 +151,7 @@ public class LevelGenerator : MonoBehaviour
 		{
 			mesh = GenerateMeshData(stageParemeters[i], ref info);
 			stages[i] = CreateMesh(stageParemeters[i], mesh);
+			yield return new WaitForFixedUpdate();
 		}
 		if (debugMode)
 			Debug.DrawLine(Vector3.zero, layerCenter, Color.white, Mathf.Infinity);
@@ -229,6 +232,7 @@ public class LevelGenerator : MonoBehaviour
 				// make some noise 
 				if (layer != 0 && layer != layerCount-1)
 					radius += Random.Range(-1,1) * vertVariation;
+				
 				// calculate vertex position from radius
 				Vector3 vertex = layerCenter + transform.forward * radius;
 				
@@ -243,12 +247,11 @@ public class LevelGenerator : MonoBehaviour
 		layerCenter -= Vector3.up * layerHeight;
 		// </vertices and uv generation>
 		
-		// For simplicity, fill the triangles index after creating all the vertices.
+		// Fill the triangles index after creating all the vertices.
 		// Each triangles[] element is an index to the vertices[] array
 		// So each element in triangles[] is really indicating a point on a triangle
 		// Every 3 points are the points for one triangle.
 		int index = 0;
-		
 		for ( int layer = 0; layer < layerCount-1; layer++ )
 		{
 			for ( int vert = 0; vert < vertsPerLayer-1; vert++ )
@@ -263,10 +266,10 @@ public class LevelGenerator : MonoBehaviour
 				triangles[index++] = ( layer   *vertsPerLayer) + vert + 1;
 				triangles[index++] = ((layer+1)*vertsPerLayer) + vert + 1;
 			}
-
+			
 			// These two triangles join the ends of each layer
 			// This is best explained by removing the code for them to see what happens...
-			// (hint: look all around the mesh, easier to spot with less sides)
+			// (hint: look all around the mesh, easier to spot with less verts)
 			triangles[index++] = ( layer   *vertsPerLayer);
 			triangles[index++] = ((layer+1)*vertsPerLayer);
 			triangles[index++] = ((layer+1)*vertsPerLayer) + vertsPerLayer-1;
@@ -275,11 +278,11 @@ public class LevelGenerator : MonoBehaviour
 			triangles[index++] = ((layer+1)*vertsPerLayer) + vertsPerLayer-1;
 			triangles[index++] = ( layer   *vertsPerLayer) + vertsPerLayer-1;
 		}
-
 		
 		// Spawn a cloud layer!
 		if (spawnClouds)
 			Instantiate(cloudLayer, layerCenter + Vector3.back * 10f, Quaternion.identity);
+		
 		// return 
 		prevInfo = new layerInfo(prevInfo.index + layerCount, sin);
 		Mesh m = new Mesh();
@@ -312,6 +315,8 @@ public class LevelGenerator : MonoBehaviour
 		return child.transform;
 	}
 	
+	// Data class for defining different types of hand hold routes
+	public enum RouteStyle {LockedToStartAngle, FreeMoving};
 	[System.Serializable]
 	public class ClimbingRouteParameters
 	{
@@ -325,6 +330,7 @@ public class LevelGenerator : MonoBehaviour
 	void SpawnRoutes()
 	{
 		int numberOfRoutes = 0;
+		int handholdCount = 0;
 		for (int i = 0; i < Routes.Length; i++) numberOfRoutes += Routes[i].instancesOfThisRoute;
 		
 		int[] shuffledRoutes = new int[numberOfRoutes];
@@ -360,15 +366,15 @@ public class LevelGenerator : MonoBehaviour
 		{
 			for (int u = 0; u  < Routes[i].instancesOfThisRoute; u++)
 			{
-				SpawnSingleRoute(Routes[i].style, startAngles[routeIndex++], Routes[i].minAngleVariance, Routes[i].maxAngleVariance);
+				handholdCount += SpawnSingleRoute(Routes[i].style, startAngles[routeIndex++], Routes[i].minAngleVariance, Routes[i].maxAngleVariance);
 			}
 		}
+		Debug.Log ("Number of HandHolds: " + handholdCount);
 	}
 	
-	public enum RouteStyle {LockedToStartAngle, FreeMoving};
-	
-	void SpawnSingleRoute(RouteStyle style, float startAngle, float minDeltaAngle, float maxDeltaAngle)
+	int SpawnSingleRoute(RouteStyle style, float startAngle, float minDeltaAngle, float maxDeltaAngle)
 	{
+		int handholdCount = 0;
 		Transform hold;
 		
 		float maxHeight = 0f;
@@ -422,14 +428,77 @@ public class LevelGenerator : MonoBehaviour
 					hold = Instantiate(handHolds[holdIndex], hit.point, spawnRotation) as Transform;
 					hold.parent = stages[stageIndex];
 					hold.renderer.material = stageParemeters[stageIndex].materials[0];
+					handholdCount++;
 				}
 				if (debugMode)
 					Debug.DrawRay(hit.point, hit.normal, debugColor, Mathf.Infinity);
 			}
 		}
-		
+		return handholdCount;
 	}
 	
+	// Data class for defining hazards to spawn
+	[System.Serializable]
+	public class Hazard
+	{
+		public string name = "Default Hazard";
+		public Transform hazardPrefab;
+		public int numberOfInstances = 1;
+	}
+	
+	void SpawnHazards()
+	{
+		int hazardCount = 0;
+		float angleOffset = Random.Range(0f,360f);
+		for ( int i = 0; i < stageParemeters.Length; i++)
+		{
+			float minHeight = 0f;
+			float maxHeight = 0f;
+			for ( int h = 0; h < stageParemeters[i].hazards.Length; h++)
+			{
+				minHeight = maxHeight;
+				maxHeight += stageParemeters[i].height;
+				int numberOfInstances = stageParemeters[i].hazards[h].numberOfInstances;
+				for (int instance = 0; instance < numberOfInstances; instance++)
+				{
+					float angle = instance * 360f / numberOfInstances;
+					angle += angleOffset;
+					angle += Random.Range(-30f, 30f);
+					float height = Random.Range(minHeight, maxHeight);
+					if ( SpawnSingleHazard(stageParemeters[i].hazards[h].hazardPrefab, angle, height, i) )
+						hazardCount++;
+				}
+			}
+		}
+		Debug.Log ("Hazards Spawned: " + hazardCount);
+	}
+	
+	bool SpawnSingleHazard(Transform hazardPrefab, float angle, float height, int stage)
+	{
+		bool spawned = false;
+		Vector3 castDestination = Vector3.up * height;
+		Vector3 castOrigin = new Vector3();
+		castOrigin.x = Mathf.Sin(Mathf.Deg2Rad * angle) * 50f;
+		castOrigin.y = height;
+		castOrigin.z = Mathf.Cos(Mathf.Deg2Rad * angle) * 50f;
+		Ray cast = new Ray(castOrigin, castDestination - castOrigin);
+		RaycastHit hit;
+		Color debugColor = Color.red;
+		if (Physics.Raycast(cast, out hit))
+		{
+			if (hit.transform.tag == "wall")
+			{
+				debugColor = Color.magenta;
+				Quaternion spawnRotation = Quaternion.LookRotation(hit.normal);
+				hazardPrefab = Instantiate(hazardPrefab, hit.point, spawnRotation) as Transform;
+				hazardPrefab.parent = stages[stage];
+				spawned = true;
+			}
+			if (debugMode)
+				Debug.DrawRay(hit.point, hit.normal, debugColor, Mathf.Infinity);
+		}
+		return spawned;
+	}
 	
 	// Extract normals array from all generated meshes.
 	Vector3[] GetGeneratedNormals()
@@ -487,122 +556,6 @@ public class LevelGenerator : MonoBehaviour
 		}
 		return verts;
 	}
-	
-	
-	void SpawnHandholdsTheOldWay()
-	{
-		Vector3[] verts = GetGeneratedVertices();
-		Vector3[] normals = GetGeneratedNormals();
-		// count the layers
-		
-		int[] stageStartLayer = new int[stageParemeters.Length];
-		stageStartLayer[0] = (int)(stageParemeters[0].height / layerHeight);
-		int totalLayerCount = stageStartLayer[0];
-		int maxRoutes = stageParemeters[0].numberOfRoutes;
-		for ( int i = 1; i < stageParemeters.Length; i++ )
-		{
-			stageStartLayer[i] = (int)(stageParemeters[i].height / layerHeight) + stageStartLayer[i-1];
-			totalLayerCount += (int)(stageParemeters[i].height / layerHeight);
-			maxRoutes = Mathf.Max(maxRoutes, stageParemeters[i].numberOfRoutes);
-		}
-		
-		// initial hold positions
-		int[] holdvert = new int[maxRoutes];
-		int gap = 0;
-		holdvert[0] = Random.Range(0, vertsPerLayer);
-		for ( int i = 1; i < holdvert.Length; i++)
-		{
-			gap = Mathf.RoundToInt(vertsPerLayer/holdvert.Length);
-			holdvert[i] = holdvert[i-1] + Random.Range(gap/2, gap);
-		}
-		
-		Transform hold;
-		Vector3 spawnPos;
-		Quaternion spawnRot;
-		int spawnIndex = 0;
-		int stageIndex = 0;
-		for ( int layer = 1; layer < totalLayerCount; layer++)
-		{
-			if ( layer > stageStartLayer[stageIndex] ) stageIndex++;
-			
-			for ( int vert = 0; vert < vertsPerLayer; vert++)
-			{
-				for ( int i = 0; i < holdvert.Length; i++)
-				{
-					if ( vert == holdvert[i] && Random.value < 0.75f)
-					{
-						spawnPos = verts[ (layer*vertsPerLayer) + vert];
-						spawnIndex = Random.Range(0, handHolds.Length);
-						spawnRot = Quaternion.LookRotation(normals[ (layer*vertsPerLayer) + vert]);
-						hold = Instantiate(handHolds[spawnIndex], spawnPos, spawnRot) as Transform;
-						hold.parent = stages[stageIndex];
-						hold.renderer.material = stageParemeters[stageIndex].materials[0];
-						holdvert[i] += Random.Range(-2, 2);
-						if (holdvert[i] < 0 ) holdvert[i] += vertsPerLayer;
-						if (holdvert[i] >= vertsPerLayer ) holdvert[i] -= vertsPerLayer;
-					}
-				}
-			}
-		}
-	}
-	
-	[System.Serializable]
-	public class Hazard
-	{
-		public string name = "Default Hazard";
-		public Transform hazardPrefab;
-		public int numberOfInstances = 1;
-	}
-	
-	void SpawnHazards()
-	{
-		int hazardCount = 0;
-		for ( int i = 0; i < stageParemeters.Length; i++)
-		{
-			float minHeight = 0f;
-			float maxHeight = 0f;
-			for ( int h = 0; h < stageParemeters[i].hazards.Length; h++)
-			{
-				minHeight = maxHeight;
-				maxHeight += stageParemeters[i].height;
-				int numberOfInstances = stageParemeters[i].hazards[h].numberOfInstances;
-				for (int instance = 0; instance < numberOfInstances; instance++)
-				{
-					float angle = instance * 360f / numberOfInstances;
-					angle += Random.Range(-30f, 30f);
-					float height = Random.Range(minHeight, maxHeight);
-					if ( SpawnSingleHazard(stageParemeters[i].hazards[h].hazardPrefab, angle, height, i) )
-						hazardCount++;
-				}
-			}
-		}
-		Debug.Log ("Hazards Spawned: " + hazardCount);
-	}
-	
-	bool SpawnSingleHazard(Transform hazardPrefab, float angle, float height, int stage)
-	{
-		bool spawned = false;
-		Vector3 castDestination = Vector3.up * height;
-		Vector3 castOrigin = new Vector3();
-		castOrigin.x = Mathf.Sin(Mathf.Deg2Rad * angle) * 50f;
-		castOrigin.y = height;
-		castOrigin.z = Mathf.Cos(Mathf.Deg2Rad * angle) * 50f;
-		Ray cast = new Ray(castOrigin, castDestination - castOrigin);
-		RaycastHit hit;
-		Color debugColor = Color.red;
-		if (Physics.Raycast(cast, out hit))
-		{
-			if (hit.transform.tag == "wall")
-			{
-				debugColor = Color.magenta;
-				Quaternion spawnRotation = Quaternion.LookRotation(hit.normal);
-				hazardPrefab = Instantiate(hazardPrefab, hit.point, spawnRotation) as Transform;
-				hazardPrefab.parent = stages[stage];
-				spawned = true;
-			}
-			if (debugMode)
-				Debug.DrawRay(hit.point, hit.normal, debugColor, Mathf.Infinity);
-		}
-		return spawned;
-	}
 }
+
+
