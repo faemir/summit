@@ -450,14 +450,14 @@ public class LevelGenerator : MonoBehaviour
 	{
 		int hazardCount = 0;
 		float angleOffset = Random.Range(0f,360f);
+		float minHeight = 0f;
+		float maxHeight = 0f;
 		for ( int i = 0; i < stageParemeters.Length; i++)
 		{
-			float minHeight = 0f;
-			float maxHeight = 0f;
+			minHeight = maxHeight;
+			maxHeight += stageParemeters[i].height;
 			for ( int h = 0; h < stageParemeters[i].hazards.Length; h++)
 			{
-				minHeight = maxHeight;
-				maxHeight += stageParemeters[i].height;
 				int numberOfInstances = stageParemeters[i].hazards[h].numberOfInstances;
 				for (int instance = 0; instance < numberOfInstances; instance++)
 				{
