@@ -46,7 +46,7 @@ public class Hand : MonoBehaviour
 	public Material Orange;
 	public Material Red;
 	
-	static float strength = 80f;
+	static float strength = 85f;
 	private HandPos inputRequest;
 	public GrabState grab = GrabState.Grabbing;
 	private Vector3 moveForce = new Vector3(0f,0f,0f);
@@ -211,7 +211,8 @@ public class Hand : MonoBehaviour
 		{
 			switch (info.collider.tag)
 			{
-			case "wall":
+			case "hold":
+				ScoreManager.UseHold(info.transform);
 				Grab();
 				break;
 			case "debris":
@@ -225,7 +226,7 @@ public class Hand : MonoBehaviour
 		}
 		else 
 		{
-			if ( info.collider.tag == "wall" || info.collider.tag == "debris" )
+			if ( info.collider.tag == "hold" || info.collider.tag == "debris" )
 				renderer.material = Green;
 		}
 	}

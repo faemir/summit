@@ -428,6 +428,7 @@ public class LevelGenerator : MonoBehaviour
 					hold = Instantiate(handHolds[holdIndex], hit.point, spawnRotation) as Transform;
 					hold.parent = stages[stageIndex];
 					hold.renderer.material = stageParemeters[stageIndex].materials[0];
+					ScoreManager.AddNewHold(hold);
 					handholdCount++;
 				}
 				if (debugMode)

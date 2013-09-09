@@ -19,25 +19,23 @@ public class CameraFollowClimber : MonoBehaviour
 {
 	
 	public Transform climber;
+	public float followDistance = 1.5f;
 	
-	// Use this for initialization
-	void Start () 
+	void Start ()
 	{
-	
+		if ( !climber )
+		{
+			Transform climberParent = GameObject.FindGameObjectWithTag("climber").transform;
+			climber = climberParent.FindChild("Head");
+		}
 	}
 	
 	// Update is called once per frame
 	void Update () 
 	{
-		Vector3 targetpos;
-		targetpos.x = climber.transform.position.x * 2;
-		targetpos.y = Mathf.Abs(climber.position.y - 2f);
-		targetpos.z = climber.position.z * 2;
-		if (targetpos.x >= 18f) targetpos.x = 18f;
-		if (targetpos.x <= -18f) targetpos.x = -18f;
-		if (targetpos.z >= 18f) targetpos.z = 18f;
-		if (targetpos.z <= -18f) targetpos.z = -18f;
-		transform.position = targetpos;
-		transform.LookAt(climber.position + Vector3.up * 2f);
+		Vector3 lookDirection = (Vector3.up * climber.position.y) - climber.position;
+		Vector3 position = new Vector3(climber.position.x * followDistance, climber.position.y, climber.position.z * followDistance); 
+		transform.position = position;
+		transform.rotation = Quaternion.LookRotation(lookDirection);
 	}
 }
