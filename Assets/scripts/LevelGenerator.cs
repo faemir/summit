@@ -64,6 +64,9 @@ public class LevelGenerator : MonoBehaviour
 	// debugMode just toggles on/off some Debug.DrawLine stuff
 	public bool debugMode = false;
 	
+	// set True once the level has been generated (externally read-only)
+	public bool levelGeneratorCompleted {get; private set;}
+	
 	private Transform[] stages;					// A list of the child objects containing each stage
 	private float layerHeight; 					// The vertical gap between vertices in each mesh
 	private int vertsPerLayer;					// The number of vertices that share the same height
@@ -89,21 +92,23 @@ public class LevelGenerator : MonoBehaviour
 		}
 	}
 	
-	void Start () 
+	void Awake ()
 	{
-		StartCoroutine ("Generate");
+		levelGeneratorCompleted = false;
+		Generate();
 	}
 	
-	IEnumerator Generate()
+	void Generate()
 	{
-		StartCoroutine("GenerateMesh");
-		yield return new WaitForSeconds(0.5f);
+		GenerateMeshes();
+		
 		SpawnHazards();
-		yield return new WaitForSeconds(0.5f);
+		
 		SpawnRoutes();
+		levelGeneratorCompleted = true;
 	}
 	
-	IEnumerator GenerateMesh()
+	void GenerateMeshes()
 	{
 		// Initialise mesh detail parameters
 		switch ( MeshDetail )
@@ -133,7 +138,6 @@ public class LevelGenerator : MonoBehaviour
 			layerCount += Mathf.CeilToInt((stageParemeters[i].height + layerHeight) / layerHeight);
 			trianglecount += (layerCount * vertsPerLayer * 6);
 		}
-		Debug.Log ("[MeshGen] Layer count: " + layerCount);
 		Debug.Log ("[MeshGen] Triangle count: " + trianglecount);
 		
 		// Initialise layerInfo struct
@@ -151,7 +155,6 @@ public class LevelGenerator : MonoBehaviour
 		{
 			mesh = GenerateMeshData(stageParemeters[i], ref info);
 			stages[i] = CreateMesh(stageParemeters[i], mesh);
-			yield return new WaitForFixedUpdate();
 		}
 		if (debugMode)
 			Debug.DrawLine(Vector3.zero, layerCenter, Color.white, Mathf.Infinity);
@@ -556,6 +559,21 @@ public class LevelGenerator : MonoBehaviour
 			vertexCount += stagevertices[i].Length;
 		}
 		return verts;
+	}
+	
+	public Vector3[] GetBottomVertices()
+	{
+		Transform firstStage = transform.FindChild (stageParemeters[0].name);
+		if ( !firstStage )
+			Debug.LogError("GetBottomVertices() could not find the first stage");
+		
+		Vector3[] bottomVerts = new Vector3[vertsPerLayer];
+		Vector3[] allVerts = firstStage.GetComponent<MeshFilter>().mesh.vertices;
+		for ( int i = 0; i < vertsPerLayer; i++ )
+		{
+			bottomVerts[i] = allVerts[i];
+		}
+		return bottomVerts;
 	}
 }
 

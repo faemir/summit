@@ -41,7 +41,7 @@ public class Hand : MonoBehaviour
 	
 	public HandPos thisHand = HandPos.Left;
 	public Transform otherHand;
-	public Transform thisShoulder;
+	//public Transform thisShoulder;
 	public Material Green;
 	public Material Orange;
 	public Material Red;
@@ -67,7 +67,7 @@ public class Hand : MonoBehaviour
 		Debug.DrawRay(transform.position, moveForce, Color.red);
 		rigidbody.AddForce(moveForce * strength);
 		Vector3 dir;
-		switch(muscle)
+		/*switch(muscle)
 		{
 		case LimbState.Contract:
 			if (grab == GrabState.Grabbed)
@@ -93,7 +93,7 @@ public class Hand : MonoBehaviour
 				rigidbody.AddForce(-dir * strength);
 			}
 			break;
-		}
+		}*/
 	}
 	
 	// Update is called once per frame
