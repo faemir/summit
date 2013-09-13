@@ -18,8 +18,20 @@ using System.Collections;
 public class CameraFollowClimber : MonoBehaviour 
 {
 	
-	public Transform climber;
+	public Transform Climber
+	{
+		get { return climber; }
+		set 
+		{ 
+			if ( !value.rigidbody )
+				climber = value.GetComponentInChildren<Rigidbody>().transform;
+			else
+				climber = value;
+		} 
+	}
 	public float followDistance = 1.5f;
+	
+	private Transform climber;
 	
 	void Start ()
 	{
@@ -33,6 +45,8 @@ public class CameraFollowClimber : MonoBehaviour
 	// Update is called once per frame
 	void Update () 
 	{
+		
+		
 		Vector3 lookDirection = (Vector3.up * climber.position.y) - climber.position;
 		Vector3 position = new Vector3(climber.position.x * followDistance, climber.position.y, climber.position.z * followDistance); 
 		transform.position = position;
